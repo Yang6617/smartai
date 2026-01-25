@@ -21,6 +21,11 @@ vector_engine/
 │   ├── model_manager.py              # 嵌入模型管理器
 │   ├── config.py                     # 模型配置
 │   └── utils.py                      # 辅助工具函数
+├── batch_processor/                  # 批量向量化处理模块
+│   ├── __init__.py                   # 包初始化
+│   ├── processor.py                  # 批量处理器
+│   ├── config.py                     # 处理器配置
+│   └── example.py                    # 使用示例
 ├── scripts/                          # 初始化数据库的脚本
 │   ├── db_design.md
 │   ├── init_chromadb_local.py        # 完整初始化脚本（创建结构+示例数据）
@@ -31,7 +36,8 @@ vector_engine/
     ├── test_db_operations.py         # 向量数据库代理功能测试脚本
     ├── test_complete_interface.py    # 向量数据库代理完整接口功能验证脚本
     ├── verify_persistence.py         # 数据持久性验证脚本
-    └── test_embedding_loader.py      # 嵌入模型加载模块测试脚本
+    ├── test_embedding_loader.py      # 嵌入模型加载模块测试脚本
+    └── test_batch_processor.py       # 批量向量化处理模块测试脚本
 ```
 
 ## 相关模块
@@ -79,6 +85,68 @@ if success:
     manager.unload_model("my_bge_m3")
 ```
 
+### 批量向量化处理模块 (batch_processor/)
+
+批量向量化处理模块负责将文本块列表转换为向量并存储到向量数据库中，实现了从原始文本到向量存储的完整流程。
+
+**核心组件：**
+- `processor.py`: 批量向量处理器，实现文本向量化和数据库存储的核心逻辑
+- `config.py`: 处理器配置，定义批量处理的配置参数
+
+**主要特性：**
+- **JSON数据处理**: 接收符合规范的JSON格式文本块列表
+- **智能元数据映射**: 自动将输入数据映射到向量数据库所需的元数据格式
+- **ID生成策略**: 自动生成唯一且有意义的文本块ID
+- **批量处理**: 高效处理大量文本块，减少数据库交互次数
+- **错误处理**: 完善的异常处理和错误报告机制
+
+**数据格式映射：**
+- 输入数据的 `team_id` → 数据库中的 `knowledge_base_id`
+- 输入数据的 `structure_path` → 数据库中的 `source_info`
+- 输入数据的 `user_id` → 数据库中的 `uploader_id`
+- 输入数据的 `document_id` → 数据库中的 `document_id`
+
+**使用示例：**
+```python
+from core.vector_engine.batch_processor import BatchVectorProcessor
+from core.vector_engine.batch_processor.config import BatchProcessorConfig
+
+# 创建配置
+config = BatchProcessorConfig(
+    model_path="../../model",
+    db_path="../../data/chroma_persistent_data"
+)
+
+# 创建批量处理器
+processor = BatchVectorProcessor(config)
+
+# 准备输入数据
+delivery_data = {
+    "document_id": "doc_001", 
+    "team_id": "team_abc", 
+    "user_id": "user_1234",
+    "file_name": "产品介绍.md", 
+    "file_type": "markdown", 
+    "chunks": [
+        {
+            "text": "我们的产品支持实时协作...",
+            "chunk_index": 0, 
+            "structure_path": ["# 功能特色", "## 核心优势"], 
+        }
+    ] 
+}
+
+# 加载模型
+processor.load_model("bge-m3", alias="main_model")
+
+# 处理批量数据
+result = processor.process_batch(delivery_data, model_alias="main_model")
+print(result)
+
+# 卸载模型
+processor.unload_model("main_model")
+```
+
 ## 核心组件
 
 ### 1. 核心模块 (vector_db_proxy/)
@@ -95,6 +163,13 @@ if success:
 - `model_manager.py`: 嵌入模型管理器，提供高级模型管理功能（加载、卸载、别名管理等）
 - `config.py`: 模型配置管理，定义模型配置参数
 - `utils.py`: 辅助工具函数，提供路径处理、模型验证等功能
+
+### 3. 批量向量化处理模块 (batch_processor/)
+- `processor.py`: 批量向量处理器，负责将文本块转换为向量并存储到向量数据库
+- `config.py`: 处理器配置，定义批量处理的配置参数
+- `example.py`: 使用示例，展示如何使用批量处理器
+- `test_import.py`: 导入测试，验证模块导入功能
+- `test_functionality.py`: 功能测试，验证批量处理器的各项功能
 
 ### 3. 脚本 (scripts/)
 - `init_chromadb_local.py`: 完整初始化脚本（创建数据库结构+添加示例数据，用于开发/演示）
@@ -184,6 +259,47 @@ if success:
     
     # 使用完毕后卸载模型以释放资源
     model_manager.unload_model("my_bge_m3")
+```
+
+### 使用批量向量化处理
+```python
+from core.vector_engine.batch_processor import BatchVectorProcessor
+from core.vector_engine.batch_processor.config import BatchProcessorConfig
+
+# 创建配置
+config = BatchProcessorConfig(
+    model_path="../../model",
+    db_path="../../data/chroma_persistent_data"
+)
+
+# 创建批量处理器
+processor = BatchVectorProcessor(config)
+
+# 准备输入数据
+delivery_data = {
+    "document_id": "doc_001", 
+    "team_id": "team_abc", 
+    "user_id": "user_1234",
+    "file_name": "产品介绍.md", 
+    "file_type": "markdown", 
+    "chunks": [
+        {
+            "text": "我们的产品支持实时协作...",
+            "chunk_index": 0, 
+            "structure_path": ["# 功能特色", "## 核心优势"], 
+        }
+    ] 
+}
+
+# 加载模型
+processor.load_model("bge-m3", alias="main_model")
+
+# 处理批量数据
+result = processor.process_batch(delivery_data, model_alias="main_model")
+print(result)
+
+# 卸载模型
+processor.unload_model("main_model")
 ```
 
 ## VectorDBProxy 模块接口说明
