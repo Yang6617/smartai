@@ -33,9 +33,24 @@ class EmbeddingModelLoader:
         self.model_dir = Path(model_dir).resolve()
         self.loaded_models: Dict[str, Any] = {}
         
-        # 确保模型目录存在
+        # 确保模型目录存在，如果不存在则记录警告但不抛出异常
         if not self.model_dir.exists():
-            raise FileNotFoundError(f"模型目录不存在: {self.model_dir}")
+            print(f"警告: 模型目录不存在: {self.model_dir}")
+            # 尝试使用当前工作目录下的model目录
+            alt_model_dir = Path.cwd() / "model"
+            if alt_model_dir.exists():
+                self.model_dir = alt_model_dir
+                print(f"使用备用模型目录: {self.model_dir}")
+            else:
+                # 最后尝试使用项目根目录下的model目录
+                import os
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                alt_model_dir = Path(project_root) / "model"
+                if alt_model_dir.exists():
+                    self.model_dir = alt_model_dir
+                    print(f"使用备用模型目录: {self.model_dir}")
+                else:
+                    print(f"备用模型目录也不存在: {alt_model_dir}")
     
     def list_available_models(self) -> list:
         """

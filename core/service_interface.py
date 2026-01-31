@@ -46,8 +46,10 @@ class CoreServiceInterface:
         
         # 初始化向量引擎组件
         try:
-            # 创建向量引擎配置
-            batch_config = BatchProcessorConfig()
+            # 创建向量引擎配置，指定正确的模型路径
+            import os
+            model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model")
+            batch_config = BatchProcessorConfig(model_path=model_dir)
             self.batch_processor = BatchVectorProcessor(config=batch_config)
         except FileNotFoundError as e:
             print(f"警告: 无法初始化批量处理器 - {e}")
@@ -71,7 +73,26 @@ class CoreServiceInterface:
         # 初始化RAG引擎组件
         try:
             # 初始化嵌入模型管理器（用于RAG服务）
-            self.embedding_model_manager = EmbeddingModelManager()
+            # 指定正确的模型目录路径 - 使用项目根目录下的model文件夹
+            import os
+            # 获取项目根目录（从当前文件向上两级）
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_dir = os.path.join(project_root, "model")
+            
+            # 如果模型目录不存在，尝试使用绝对路径
+            if not os.path.exists(model_dir):
+                # 尝试使用当前工作目录下的model目录
+                model_dir = os.path.join(os.getcwd(), "model")
+                
+                # 如果还是不存在，尝试从当前文件的绝对路径构建
+                if not os.path.exists(model_dir):
+                    # 尝试使用当前项目的model目录（最常见的情况）
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    # 从core目录向上一级到项目根目录
+                    project_root = os.path.dirname(current_dir)
+                    model_dir = os.path.join(project_root, "model")
+            
+            self.embedding_model_manager = EmbeddingModelManager(model_dir=model_dir)
             
             # 初始化LLM客户端（使用DeepSeek或其他）
             # 这里使用占位符，实际部署时应从配置或环境变量获取API密钥
@@ -355,9 +376,9 @@ class CoreServiceInterface:
             
             # 使用批量处理器处理数据
             try:
-                # 加载模型（这里假设使用默认模型）
+                # 加载模型（使用正确的模型名称）
                 if not self.batch_processor._model_loaded:
-                    self.batch_processor.load_model("all-MiniLM-L6-v2")  # 使用默认模型名称
+                    self.batch_processor.load_model("bge-m3")  # 使用正确的模型名称
                 
                 processed_result = self.batch_processor.process_batch(delivery_data)
                 

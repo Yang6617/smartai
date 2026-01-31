@@ -19,9 +19,9 @@ class VectorDBConfig:
     # Database type (chromadb, pinecone, weaviate, etc.)
     db_type: str = "chromadb"
     
-    # Connection parameters
-    host: str = "localhost"
-    port: int = 8000
+    # Connection parameters - default to empty values to favor persistent mode
+    host: str = ""  # Empty string defaults to persistent mode
+    port: int = 0   # Zero defaults to persistent mode
     path: Optional[str] = "./chroma_data"  # For ChromaDB persistence
     api_key: Optional[str] = None
     ssl: bool = False

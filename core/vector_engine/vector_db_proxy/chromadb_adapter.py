@@ -60,22 +60,31 @@ class ChromaDBAdapter(VectorDatabaseInterface):
                 settings = Settings(persist_directory=self.config.path)
                 
             # Create client based on configuration
-            if self.config.host and self.config.port:
-                # For HTTP API client
-                self.client = chromadb.HttpClient(
-                    host=self.config.host,
-                    port=self.config.port,
-                    ssl=self.config.ssl,
-                    headers={} if not self.config.api_key else {"Authorization": f"Bearer {self.config.api_key}"}
-                )
-            else:
-                # For persistent client
-                self.client = chromadb.PersistentClient(
-                    path=self.config.path or "./chroma_data",
-                    settings=settings
-                )
+            # Prioritize persistent client over HTTP client to avoid connection issues
+            if self.config.host and self.config.port and self.config.host != "localhost" and self.config.port != 8000:
+                # For HTTP API client (only if not using default FastAPI port)
+                try:
+                    self.client = chromadb.HttpClient(
+                        host=self.config.host,
+                        port=self.config.port,
+                        ssl=self.config.ssl,
+                        headers={} if not self.config.api_key else {"Authorization": f"Bearer {self.config.api_key}"}
+                    )
+                    # Test the connection
+                    _ = self.client.heartbeat()
+                    return True
+                except Exception as http_error:
+                    print(f"HTTP connection failed: {http_error}. Falling back to persistent client.")
+                    # If HTTP connection fails, fall back to persistent client
+                    pass
+            
+            # For persistent client (default fallback)
+            self.client = chromadb.PersistentClient(
+                path=self.config.path or "./chroma_data",
+                settings=settings
+            )
                 
-            # Test the connection
+            # Test the connection with a simple operation
             _ = self.client.heartbeat()
             return True
             
