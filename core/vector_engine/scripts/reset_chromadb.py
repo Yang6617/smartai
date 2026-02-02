@@ -6,9 +6,10 @@ import os
 import sys
 import shutil
 from datetime import datetime
+from pathlib import Path
 
 # 添加项目根目录到系统路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.vector_engine.vector_db_proxy.config import VectorDBConfig
 from core.vector_engine.vector_db_proxy.chromadb_adapter import ChromaDBAdapter
@@ -75,7 +76,7 @@ def reset_chromadb():
         else:
             print(f"⚠ 警告：集合中仍有 {count} 个向量")
         
-        print(f"  数据库文件位置: {os.path.abspath(config.path)}")
+        print(f"  数据库文件位置: {(Path(config.path).resolve())}")
         return True
         
     except Exception as e:

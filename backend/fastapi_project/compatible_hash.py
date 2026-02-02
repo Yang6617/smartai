@@ -1,14 +1,14 @@
 """兼容的密码哈希实现"""
 import sys
-import os
+from pathlib import Path
 
 # 添加项目根目录到Python路径
-current_file_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_file_dir)
-project_root = os.path.abspath(project_root)
+current_file_dir = Path(__file__).parent
+project_root = current_file_dir.parent
 
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+project_root_str = str(project_root.resolve())
+if project_root_str not in sys.path:
+    sys.path.insert(0, project_root_str)
 
 import hashlib
 import logging

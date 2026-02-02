@@ -2,17 +2,17 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel
 import sys
-import os
+from pathlib import Path
 
 # 添加项目根目录到Python路径，以便导入核心服务
-current_dir = os.path.dirname(os.path.abspath(__file__))  # routes目录
-backend_dir = os.path.dirname(current_dir)  # fastapi_project目录
-project_root = os.path.dirname(backend_dir)  # 项目根目录 (ai_model_service)
-project_root = os.path.abspath(project_root)  # 确保是绝对路径
+current_dir = Path(__file__).parent  # routes目录
+backend_dir = current_dir.parent  # fastapi_project目录
+project_root = backend_dir.parent  # 项目根目录 (ai_model_service)
 
 # 将项目根目录添加到Python路径的开头
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+project_root_str = str(project_root.resolve())
+if project_root_str not in sys.path:
+    sys.path.insert(0, project_root_str)
 
 from core.service_interface import ask_question_interface, upload_file_interface
 from utils.security import get_current_user

@@ -6,9 +6,10 @@
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 # 添加项目根目录到系统路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.vector_engine.vector_db_proxy.config import VectorDBConfig
 from core.vector_engine.vector_db_proxy.chromadb_adapter import ChromaDBAdapter
@@ -64,7 +65,7 @@ def init_chromadb_structure_only():
                 print(f"✗ 创建集合 {collection_name} 失败: {str(e)}")
                 return False
                 
-        print(f"  数据库文件位置: {os.path.abspath(config.path)}")
+        print(f"  数据库文件位置: {(Path(config.path).resolve())}")
         
         print("\n✓ ChromaDB 数据库结构创建完成!")
         print("  提示: 数据库已准备好，但集合为空，等待实际数据写入。")

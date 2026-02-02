@@ -7,9 +7,10 @@ import os
 import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 # 添加项目根目录到系统路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.vector_engine.vector_db_proxy.config import VectorDBConfig
 from core.vector_engine.vector_db_proxy.chromadb_adapter import ChromaDBAdapter
@@ -107,7 +108,7 @@ def init_chromadb_persistent():
             return False
         
         print("\n✓ ChromaDB 持久化数据库初始化完成!")
-        print(f"  数据文件保存在: {os.path.abspath(config.path)}")
+        print(f"  数据文件保存在: {(Path(config.path).resolve())}")
         return True
         
     except Exception as e:

@@ -43,8 +43,7 @@ class EmbeddingModelLoader:
                 print(f"使用备用模型目录: {self.model_dir}")
             else:
                 # 最后尝试使用项目根目录下的model目录
-                import os
-                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                project_root = Path(__file__).parent.parent.parent
                 alt_model_dir = Path(project_root) / "model"
                 if alt_model_dir.exists():
                     self.model_dir = alt_model_dir

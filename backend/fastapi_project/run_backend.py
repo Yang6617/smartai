@@ -2,17 +2,17 @@
 启动后端服务的脚本，正确设置Python路径
 """
 import sys
-import os
+from pathlib import Path
 
 # 添加项目根目录到Python路径，确保能导入core模块
-current_file_dir = os.path.dirname(os.path.abspath(__file__))  # fastapi_project目录
-project_root = os.path.dirname(os.path.dirname(current_file_dir))  # 项目根目录 (ai_model_service)
-project_root = os.path.abspath(project_root)  # 确保是绝对路径
+current_file_dir = Path(__file__).parent  # fastapi_project目录
+project_root = current_file_dir.parent.parent  # 项目根目录 (ai_model_service)
 
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+project_root_str = str(project_root.resolve())
+if project_root_str not in sys.path:
+    sys.path.insert(0, project_root_str)
 
-print(f"项目根目录已添加到Python路径: {project_root}")
+print(f"项目根目录已添加到Python路径: {project_root_str}")
 
 # 验证能否导入核心服务接口
 try:

@@ -76,8 +76,8 @@ class CoreServiceInterface:
         # 初始化向量引擎组件
         try:
             # 创建向量引擎配置，指定正确的模型路径
-            import os
-            model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model")
+            from pathlib import Path
+            model_dir = str(Path(__file__).parent.parent / "model")
             batch_config = BatchProcessorConfig(model_path=model_dir)
             self.batch_processor = BatchVectorProcessor(config=batch_config)
             
@@ -98,23 +98,23 @@ class CoreServiceInterface:
         try:
             # 初始化嵌入模型管理器（用于RAG服务）
             # 指定正确的模型目录路径 - 使用项目根目录下的model文件夹
-            import os
+            from pathlib import Path
             # 获取项目根目录（从当前文件向上两级）
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_dir = os.path.join(project_root, "model")
+            project_root = Path(__file__).parent.parent
+            model_dir = str(project_root / "model")
             
-            # 如果模型目录不存在，尝试使用绝对路径
-            if not os.path.exists(model_dir):
+            # 如果模型目录不存在，尝试使用当前工作目录下的model目录
+            if not Path(model_dir).exists():
                 # 尝试使用当前工作目录下的model目录
-                model_dir = os.path.join(os.getcwd(), "model")
+                model_dir = str(Path.cwd() / "model")
                 
-                # 如果还是不存在，尝试从当前文件的绝对路径构建
-                if not os.path.exists(model_dir):
+                # 如果还是不存在，尝试从当前文件的路径构建
+                if not Path(model_dir).exists():
                     # 尝试使用当前项目的model目录（最常见的情况）
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    current_dir = Path(__file__).parent
                     # 从core目录向上一级到项目根目录
-                    project_root = os.path.dirname(current_dir)
-                    model_dir = os.path.join(project_root, "model")
+                    project_root = current_dir.parent
+                    model_dir = str(project_root / "model")
             
             self.embedding_model_manager = EmbeddingModelManager(model_dir=model_dir)
             
