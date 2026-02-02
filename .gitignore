@@ -29,6 +29,11 @@ wheels/
 data/
 *.sqlite3
 *.db
+chroma_data/
+uploads/
+
+# Models
+model/
 
 # Logs
 *.log
