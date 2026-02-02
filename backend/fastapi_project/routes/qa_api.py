@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel
 import sys
 import os
@@ -26,7 +26,7 @@ class AskQuestionRequest(BaseModel):
     model_config = {'protected_namespaces': ()}  # 禁用模型字段保护命名空间
     
     question: str
-    knowledge_base_id: str
+    knowledge_base_id: Union[str, int]  # 支持字符串或整数类型
     model_alias: str = "default"
     stream: bool = False
     top_k: Optional[int] = None

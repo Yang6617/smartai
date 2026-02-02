@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
@@ -21,8 +21,9 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 @router.post("/upload", response_model=FileInfoResponse, summary="上传文件")
 async def upload_file(
     file: UploadFile = File(...),
-    group_id: Optional[int] = Query(None, description="群组ID，如果不指定则上传到个人空间"),
-    category: str = Query("general", description="文件分类"),
+    original_filename: Optional[str] = Form(default=None),  # 允许客户端提供原始文件名
+    group_id: Optional[str] = Form(default=None),
+    category: str = Form(default="general"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -36,8 +37,12 @@ async def upload_file(
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="文件过大，最大支持50MB")
     
-    # 生成唯一文件名
-    unique_filename = f"{uuid.uuid4()}_{file.filename}"
+    # 使用客户端提供的原始文件名，如果未提供则使用系统提供的文件名
+    actual_original_filename = original_filename if original_filename else file.filename
+    
+    # 安全地生成唯一文件名（只包含字母、数字、下划线和点）
+    safe_original_filename = "".join(c for c in actual_original_filename if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
+    unique_filename = f"{uuid.uuid4()}_{safe_original_filename}"
     file_location = UPLOAD_DIR / unique_filename
     
     # 异步写入文件
@@ -52,14 +57,23 @@ async def upload_file(
     file_size = os.path.getsize(file_location)
     file_type = determine_file_type(file.filename)
     
+    # 将字符串类型的group_id转换为整数（如果存在）
+    group_id_int = None
+    if group_id is not None:
+        try:
+            group_id_int = int(group_id)
+        except ValueError:
+            logger.error(f"无效的群组ID: {group_id}")
+            raise HTTPException(status_code=400, detail="无效的群组ID")
+    
     # 创建文件信息记录
     db_file_info = FileInfo(
         filename=unique_filename,
-        original_filename=file.filename,
+        original_filename=actual_original_filename,  # 使用客户端提供的或实际的原始文件名
         file_size=file_size,
         content_type=file.content_type or "application/octet-stream",
         uploader_id=current_user.id,
-        group_id=group_id,
+        group_id=group_id_int,
         file_category=category,
         file_type=file_type.value
     )
@@ -67,14 +81,13 @@ async def upload_file(
     try:
         db.commit()
         db.refresh(db_file_info)
-        logger.info(f"用户 {current_user.username} 上传了文件 {file.filename}")
+        logger.info(f"用户 {current_user.username} 上传了文件 {actual_original_filename}")
         return db_file_info
     except Exception as e:
         # 清理已保存的文件
         if file_location.exists():
             file_location.unlink()
         db.rollback()
-        logger = logging.getLogger(__name__)
         logger.error(f"保存文件信息时发生错误: {str(e)}")
         raise HTTPException(status_code=500, detail="保存文件信息时发生错误")
 
