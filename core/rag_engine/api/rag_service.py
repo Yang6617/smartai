@@ -73,9 +73,9 @@ class RAGService:
         kb_id = conversation_state.user_context.knowledge_base_id
 
         # 添加调试信息
-        print(f"[DEBUG] RAG Service - Received question: {question[:50]}...")
-        print(f"[DEBUG] RAG Service - Knowledge base ID: {kb_id}")
-        print(f"[DEBUG] RAG Service - Knowledge base ID type: {type(kb_id)}")
+        # print(f"[DEBUG] RAG Service - Received question: {question[:50]}...")
+        # print(f"[DEBUG] RAG Service - Knowledge base ID: {kb_id}")
+        # print(f"[DEBUG] RAG Service - Knowledge base ID type: {type(kb_id)}")
 
         # 1) 生成 query embedding
         # encode 返回：np.ndarray 或 List[List[float]]（取决于 SentenceTransformer 参数）
@@ -98,7 +98,7 @@ class RAGService:
             kb_id_str = str(kb_id).strip()
             collection_name = f"kb_{kb_id_str}"
             
-            print(f"[DEBUG] RAG Service - Using collection name: {collection_name}")
+            # print(f"[DEBUG] RAG Service - Using collection name: {collection_name}")
             
             # 创建临时orchestrator实例以使用正确的集合名
             temp_orchestrator = RAGOrchestrator(

@@ -69,10 +69,10 @@ class VectorRetriever:
         where_document = build_where_document_filter(rf)
 
         # 添加调试信息
-        print(f"[DEBUG] Vector Retriever - Querying collection: {collection_name}")
-        print(f"[DEBUG] Vector Retriever - Filter: {rf}")
-        print(f"[DEBUG] Vector Retriever - Where filter: {where}")
-        print(f"[DEBUG] Vector Retriever - Where document filter: {where_document}")
+        # print(f"[DEBUG] Vector Retriever - Querying collection: {collection_name}")
+        # print(f"[DEBUG] Vector Retriever - Filter: {rf}")
+        # print(f"[DEBUG] Vector Retriever - Where filter: {where}")
+        # print(f"[DEBUG] Vector Retriever - Where document filter: {where_document}")
 
         # 这里直接调用你们的 proxy（其内部带稳定性重试/监控）
         results = self.db_proxy.query_vectors(
@@ -83,7 +83,7 @@ class VectorRetriever:
             where_document=where_document,
         )
 
-        print(f"[DEBUG] Vector Retriever - Query results count: {len(results) if results else 0}")
+        # print(f"[DEBUG] Vector Retriever - Query results count: {len(results) if results else 0}")
 
         hits: List[RetrievalHit] = []
         for r in results or []:

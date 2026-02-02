@@ -196,7 +196,7 @@ class BatchVectorProcessor:
             
             # 将向量添加到数据库
             collection_name = f"kb_{delivery_data.get('team_id', 'default')}"
-            print(f"[DEBUG] Batch Processor - Storing in collection: {collection_name}")
+            # print(f"[DEBUG] Batch Processor - Storing in collection: {collection_name}")
             
             # 确保集合存在
             self.db_proxy.create_collection(collection_name)
@@ -216,7 +216,7 @@ class BatchVectorProcessor:
                 # 验证数据是否可以被查询到（在当前连接上下文中）
                 try:
                     count_in_current_connection = self.db_proxy.get_vector_count(collection_name)
-                    print(f"[DEBUG] Batch Processor - Count after add in current connection: {count_in_current_connection}")
+                    # print(f"[DEBUG] Batch Processor - Count after add in current connection: {count_in_current_connection}")
                     
                     # 再等待一点时间确保数据被充分处理
                     time.sleep(0.3)
@@ -243,15 +243,15 @@ class BatchVectorProcessor:
                 adapter = self.db_proxy.current_adapter
                 if hasattr(adapter, 'client') and adapter.client:
                     if hasattr(adapter.client, 'persist'):
-                        print("[DEBUG] Calling client.persist() in batch processor")
+                        # print("[DEBUG] Calling client.persist() in batch processor")
                         adapter.client.persist()
                         time.sleep(0.3)  # 增加等待时间
                     else:
                         # 如果没有 persist 方法，等待更长时间让自动持久化完成
-                        print("[DEBUG] No persist method, waiting for auto-persistence...")
+                        # print("[DEBUG] No persist method, waiting for auto-persistence...")
                         time.sleep(1.0)
             except Exception as e:
-                print(f"[DEBUG] Persist operation failed: {e}")
+                # print(f"[DEBUG] Persist operation failed: {e}")
                 # 即使失败也等待一段时间
                 time.sleep(0.5)
             

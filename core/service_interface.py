@@ -412,9 +412,9 @@ class CoreServiceInterface:
             try:
                 # 加载模型（使用正确的模型名称）
                 if not self.batch_processor._model_loaded:
-                    print(f"[DEBUG] Loading embedding model...")
+                    # print(f"[DEBUG] Loading embedding model...")
                     load_result = self.batch_processor.load_model("bge-m3")  # 使用正确的模型名称
-                    print(f"[DEBUG] Model load result: {load_result}")
+                    # print(f"[DEBUG] Model load result: {load_result}")
                 
                 if not self.batch_processor._model_loaded:
                     raise RuntimeError("Failed to load embedding model")
@@ -447,9 +447,9 @@ class CoreServiceInterface:
                 collection_name = f"kb_{knowledge_base_id}"
                 try:
                     count_after_processing = self.vector_db_proxy.get_vector_count(collection_name)
-                    print(f"[DEBUG] Count after processing with service proxy: {count_after_processing}")
+                    # print(f"[DEBUG] Count after processing with service proxy: {count_after_processing}")
                 except Exception as e:
-                    print(f"[DEBUG] Could not get count after processing: {e}")
+                    # print(f"[DEBUG] Could not get count after processing: {e}")
                     count_after_processing = 0
                 
             except Exception as e:
@@ -510,10 +510,10 @@ class CoreServiceInterface:
             # 确保knowledge_base_id是字符串类型
             knowledge_base_id_str = str(knowledge_base_id).strip()
             
-            # 添加调试信息
-            print(f"[DEBUG] Service Interface - Original knowledge_base_id: {knowledge_base_id}")
-            print(f"[DEBUG] Service Interface - Knowledge base ID type: {type(knowledge_base_id)}")
-            print(f"[DEBUG] Service Interface - Processed knowledge_base_id_str: {knowledge_base_id_str}")
+            # 添加调试信息（注释掉以减少输出）
+            # print(f"[DEBUG] Service Interface - Original knowledge_base_id: {knowledge_base_id}")
+            # print(f"[DEBUG] Service Interface - Knowledge base ID type: {type(knowledge_base_id)}")
+            # print(f"[DEBUG] Service Interface - Processed knowledge_base_id_str: {knowledge_base_id_str}")
             
             # 设置对话状态
             if conversation_state is None:
