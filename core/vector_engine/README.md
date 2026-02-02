@@ -1,10 +1,12 @@
-# 向量数据库代理
+# 灵析AI - 向量数据库引擎
+
+灵析AI向量数据库引擎是一个高性能、高可用的向量存储和检索系统，支持多种向量数据库适配器，提供统一的接口访问能力。该引擎专为RAG系统设计，支持大规模文档向量化存储和高效相似性检索。
 
 ## 目录结构
 
 ```
-vector_engine/
-├── db_design.md                       # 数据库设计规范
+vector_engine/                         # 向量数据库引擎
+├── db_design.md                      # 数据库设计规范
 ├── README.md                         # 本文件
 ├── vector_db_proxy/                  # 向量数据库代理核心组件
 │   ├── adapters.py                   # 其他向量数据库适配器（Pinecone, Weaviate, FAISS等）
@@ -40,64 +42,170 @@ vector_engine/
     └── test_batch_processor.py       # 批量向量化处理模块测试脚本
 ```
 
-## 相关模块
+## 核心特性
 
-本模块与以下模块协同工作：
+### 1. 多数据库适配器支持
+- **ChromaDB**: 默认向量数据库，支持本地持久化
+- **可扩展架构**: 易于集成其他向量数据库（Pinecone、Weaviate、FAISS等）
+- **统一接口**: 通过抽象接口提供一致的使用体验
 
-- `core/embedding_loader/` - 嵌入模型加载模块：提供动态加载和管理预训练嵌入模型的功能，支持BGE-M3等模型，用于生成向量嵌入。
+### 2. 高性能嵌入模型
+- **BGE-M3模型**: 支持最先进的多语言嵌入模型
+- **GPU加速**: 自动检测并使用GPU进行向量计算
+- **动态加载**: 运行时动态加载/卸载模型，节省内存资源
+- **批量编码**: 高效处理批量文本向量化
 
-### 嵌入模型加载模块 (embedding_loader/)
+### 3. 智能批量处理
+- **批量向量化**: 高效处理大批量文档片段
+- **自动分块**: 智能处理大型文档的分块存储
+- **元数据管理**: 自动处理文档元数据和索引
 
-嵌入模型加载模块提供了动态加载、管理和使用预训练嵌入模型的能力，特别针对BGE-M3等先进模型进行了优化。
+### 4. 稳定性保障
+- **连接池管理**: 高效管理数据库连接
+- **重试机制**: 自动处理临时连接失败
+- **健康监控**: 持续监控数据库连接状态
+- **数据持久化**: 确保向量数据持久存储
 
-**核心组件：**
-- `loader.py`: 嵌入模型加载器，负责实际的模型加载和设备管理
-- `model_manager.py`: 嵌入模型管理器，提供高级模型管理功能（加载、卸载、别名管理等）
-- `config.py`: 模型配置管理，定义模型配置参数
-- `utils.py`: 辅助工具函数，提供路径处理、模型验证等功能
+## 快速开始
 
-**主要特性：**
-- **动态加载/卸载**: 支持在运行时动态加载和卸载模型，节省内存资源
-- **设备自适应**: 自动检测并使用GPU（CUDA）或CPU进行推理
-- **模型别名**: 支持为模型设置别名，便于管理多个模型实例
-- **批量编码**: 支持单文本和批量文本的嵌入编码
-- **配置管理**: 支持自定义模型配置参数
-- **GPU加速**: 自动利用GPU进行模型推理，显著提升性能
+### 基础使用
 
-**使用示例：**
 ```python
+from core.vector_engine.vector_db_proxy.proxy import VectorDBProxy
 from core.vector_engine.embedding_loader import EmbeddingModelManager
 
-# 创建模型管理器
-manager = EmbeddingModelManager("../../model")
+# 初始化向量数据库代理
+db_proxy = VectorDBProxy()
 
-# 自动选择设备（GPU优先）加载模型
-success = manager.load_model("bge-m3", alias="my_bge_m3")
-if success:
-    # 使用模型进行编码
-    embeddings = manager.encode("my_bge_m3", "这是一个示例文本")
+# 连接到向量数据库
+if db_proxy.connect():
+    print("连接成功")
     
-    # 或者批量编码
-    texts = ["文本1", "文本2", "文本3"]
-    embeddings = manager.encode("my_bge_m3", texts)
+    # 创建集合
+    db_proxy.create_collection("my_documents")
     
-    # 使用完毕后卸载模型
-    manager.unload_model("my_bge_m3")
+    # 初始化嵌入模型管理器
+    model_manager = EmbeddingModelManager("../../model")
+    model_manager.load_model("bge-m3", alias="main_model")
+    
+    # 向量化文本
+    texts = ["这是第一个文档", "这是第二个文档"]
+    embeddings = model_manager.encode("main_model", texts)
+    
+    # 存储向量
+    db_proxy.add_vectors(
+        collection_name="my_documents",
+        vectors=embeddings,
+        ids=["doc_1", "doc_2"],
+        documents=texts,
+        metadatas=[{"source": "doc1"}, {"source": "doc2"}]
+    )
+    
+    # 查询相似向量
+    query_embedding = model_manager.encode("main_model", ["查询文本"])
+    results = db_proxy.query_vectors(
+        collection_name="my_documents",
+        query_vector=query_embedding[0],
+        n_results=2
+    )
+    
+    print("查询结果:", results)
+    
+    # 断开连接
+    db_proxy.disconnect()
 ```
 
-### 批量向量化处理模块 (batch_processor/)
+### 批量处理
 
-批量向量化处理模块负责将文本块列表转换为向量并存储到向量数据库中，实现了从原始文本到向量存储的完整流程。
+```python
+from core.vector_engine.batch_processor.processor import BatchVectorProcessor
+from core.vector_engine.batch_processor.config import BatchProcessorConfig
 
-**核心组件：**
-- `processor.py`: 批量向量处理器，实现文本向量化和数据库存储的核心逻辑
-- `config.py`: 处理器配置，定义批量处理的配置参数
+# 配置批量处理器
+config = BatchProcessorConfig(
+    model_path="../../model",
+    batch_size=32,
+    max_workers=4
+)
 
-**主要特性：**
-- **JSON数据处理**: 接收符合规范的JSON格式文本块列表
-- **智能元数据映射**: 自动将输入数据映射到向量数据库所需的元数据格式
-- **ID生成策略**: 自动生成唯一且有意义的文本块ID
-- **批量处理**: 高效处理大量文本块，减少数据库交互次数
+processor = BatchVectorProcessor(config)
+
+# 批量处理文档片段
+documents = [
+    {"text": "文档片段1", "id": "id1", "metadata": {"source": "doc1"}},
+    {"text": "文档片段2", "id": "id2", "metadata": {"source": "doc2"}}
+]
+
+success = processor.process_and_store(
+    collection_name="batch_documents",
+    documents=documents
+)
+```
+
+## 模块集成
+
+### 与文档预处理器集成
+向量数据库引擎与文档预处理器深度集成，自动处理文档解析后的向量化存储：
+
+```python
+# 文档预处理完成后，自动向量化存储
+from core.doc_preprocessor.chunking_engine import SmartChunkingEngine
+from core.vector_engine.batch_processor import BatchVectorProcessor
+
+# 1. 文档分块
+chunker = SmartChunkingEngine()
+chunks = chunker.chunk_elements(elements, document_id="doc_123", ...)
+
+# 2. 批量向量化存储
+processor = BatchVectorProcessor(config)
+processor.process_and_store(
+    collection_name="knowledge_base_1",
+    documents=chunks
+)
+```
+
+### 与RAG引擎集成
+向量数据库引擎为RAG引擎提供高效的检索能力：
+
+```python
+# RAG引擎中的向量检索
+from core.rag_engine.retrieval.vector_retriever import VectorRetriever
+
+retriever = VectorRetriever()
+results = retriever.retrieve(
+    query="用户问题",
+    knowledge_base_id="kb_123",
+    top_k=5
+)
+```
+
+## 性能优化
+
+### 连接管理
+- 使用连接池减少连接建立开销
+- 自动重连机制处理网络波动
+- 连接复用提高效率
+
+### 向量计算优化
+- GPU加速向量计算
+- 批量处理减少计算开销
+- 内存优化减少资源占用
+
+### 存储优化
+- 智能索引策略提高检索速度
+- 数据压缩减少存储空间
+- 分片存储支持大数据量
+
+## 部署建议
+
+### 本地部署
+- 使用ChromaDB本地模式，数据持久化存储
+- 适用于中小型知识库（百万级向量以下）
+
+### 生产环境
+- 考虑使用企业级向量数据库（Pinecone、Weaviate等）
+- 配置高可用和备份策略
+- 监控向量数据库性能指标
 - **错误处理**: 完善的异常处理和错误报告机制
 
 **数据格式映射：**

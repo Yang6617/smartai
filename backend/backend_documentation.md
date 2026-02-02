@@ -1,31 +1,33 @@
-# AI知识库问答系统 - 后端项目文档
+# 灵析AI - 后端服务文档
 
 ## 项目概述
 
-本项目是一个基于FastAPI构建的AI知识库问答系统后端，支持文档预处理、向量化存储、智能问答等功能。项目集成了微信小程序登录、文件上传管理、群组分享等功能。
+灵析AI后端服务是一个基于FastAPI构建的企业级AI知识库问答系统，支持文档预处理、向量化存储、智能问答等功能。项目集成了用户认证、群组管理、微信小程序登录、文件上传管理、收藏分享等完整功能。
 
-## 项目结构
+## 系统架构
 
 ```
-backend/
+灵析AI后端服务架构
 ├── fastapi_project/              # FastAPI主项目目录
-│   ├── main.py                   # 主应用入口文件
+│   ├── main.py                   # 主应用入口文件，路由注册
 │   ├── run_backend.py            # 后端启动脚本
 │   ├── requirements.txt          # 项目依赖
 │   ├── database_design.md        # 数据库设计文档
 │   ├── README.md                 # 项目说明文档
 │   ├── uploads/                  # 文件上传目录
 │   ├── chroma_data/              # Chroma向量数据库存储目录
-│   ├── core/                     # 核心服务接口（软链接或复制）
+│   ├── core/                     # 核心AI服务（文档预处理、RAG引擎、向量存储）
 │   ├── routes/                   # API路由模块
-│   │   ├── auth.py               # 认证相关路由
-│   │   ├── files.py              # 文件管理路由
+│   │   ├── auth.py               # 用户认证相关路由
+│   │   ├── files.py              # 文件上传管理路由
 │   │   ├── groups.py             # 群组管理路由
 │   │   ├── favorites.py          # 收藏功能路由
 │   │   ├── qa.py                 # 问答功能路由
-│   │   └── misc.py               # 其他功能路由（包括微信登录）
+│   │   ├── qa_api.py             # 问答API路由（外部调用）
+│   │   └── misc.py               # 其他功能路由（微信登录等）
 │   ├── utils/                    # 工具函数
-│   │   └── security.py           # 安全认证工具
+│   │   ├── security.py           # 安全认证工具
+│   │   └── ai_client.py          # AI服务客户端
 │   ├── models/                   # 数据模型
 │   │   └── database_models.py    # 数据库模型定义
 │   ├── schemas/                  # Pydantic模型
@@ -34,6 +36,37 @@ backend/
 │   │   └── db_config.py          # 数据库连接配置
 │   └── tests/                    # 测试文件
 ```
+
+## 核心功能模块
+
+### 1. 用户认证模块
+- 用户注册与登录（JWT认证）
+- 会话管理
+- 权限控制
+- 微信小程序登录集成
+
+### 2. 文件管理模块
+- 多格式文档上传（PDF、DOCX、MD、TXT等）
+- 文件元数据管理
+- 文档预处理（解析、清洗、分块）
+- 向量化存储
+
+### 3. 群组管理模块
+- 群组创建与管理
+- 成员邀请与权限控制
+- 群组内知识库共享
+- 协作问答功能
+
+### 4. 智能问答模块
+- 基于知识库的问答
+- RAG检索增强生成
+- 引用标注与来源追踪
+- 问答历史记录
+
+### 5. 收藏与分享模块
+- 问答收藏功能
+- 群组内分享
+- 问答导出功能
 
 ## 环境配置
 
@@ -48,10 +81,12 @@ pip install -r requirements.txt
 在项目根目录创建 `.env` 文件：
 
 ```env
-SECRET_KEY=your-super-secret-key-here
+SECRET_KEY=your-super-secret-key-change-this
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 DATABASE_URL=sqlite:///./knowledge_system.db
+MODEL_SERVICE_URL=http://localhost:8000
+MODEL_TIMEOUT=30.0
 WECHAT_APP_ID=your-wechat-app-id
 WECHAT_APP_SECRET=your-wechat-app-secret
 ```
@@ -61,7 +96,7 @@ WECHAT_APP_SECRET=your-wechat-app-secret
 ### 1. 认证相关接口
 
 #### 用户注册
-- **POST** `/auth/auth/register`
+- **POST** `/auth/register`
 - **描述**: 注册新用户
 - **请求体**:
   ```json
@@ -82,7 +117,7 @@ WECHAT_APP_SECRET=your-wechat-app-secret
   ```
 
 #### 用户登录
-- **POST** `/auth/auth/login`
+- **POST** `/auth/login`
 - **描述**: 用户登录获取JWT令牌
 - **请求体**:
   ```json
@@ -96,6 +131,153 @@ WECHAT_APP_SECRET=your-wechat-app-secret
   {
     "access_token": "string",
     "token_type": "bearer"
+  }
+  ```
+
+#### 获取用户信息
+- **GET** `/auth/profile`
+- **描述**: 获取当前登录用户信息（需认证）
+- **响应**:
+  ```json
+  {
+    "id": 1,
+    "username": "string",
+    "email": "string",
+    "created_at": "2023-01-01T00:00:00"
+  }
+  ```
+
+### 2. 文件管理接口
+
+#### 上传文件
+- **POST** `/files/upload`
+- **描述**: 上传文件到知识库（需认证）
+- **请求参数**:
+  - `file`: 上传的文件
+  - `knowledge_base_id`: 知识库ID
+  - `user_id`: 用户ID（从JWT中获取）
+- **响应**:
+  ```json
+  {
+    "status": "success",
+    "message": "文件上传成功",
+    "document_id": "string",
+    "file_name": "string",
+    "processing_time": 5.2
+  }
+  ```
+
+#### 获取文件列表
+- **GET** `/files/list`
+- **描述**: 获取用户文件列表（需认证）
+- **查询参数**:
+  - `knowledge_base_id`: 知识库ID（可选）
+- **响应**:
+  ```json
+  {
+    "files": [
+      {
+        "id": 1,
+        "filename": "string",
+        "original_filename": "string",
+        "file_size": 1024,
+        "content_type": "string",
+        "upload_time": "2023-01-01T00:00:00",
+        "group_id": 1
+      }
+    ]
+  }
+  ```
+
+### 3. 问答接口
+
+#### 基于知识库提问
+- **POST** `/qa/ask`
+- **描述**: 基于知识库进行智能问答（需认证）
+- **请求体**:
+  ```json
+  {
+    "question": "string",
+    "knowledge_base_id": "string",
+    "top_k": 5,
+    "temperature": 0.7
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "status": "success",
+    "answer": "string",
+    "citations": [
+      {
+        "content": "string",
+        "score": 0.85,
+        "metadata": {}
+      }
+    ],
+    "confidence_score": 0.85,
+    "processing_time": 2.3
+  }
+  ```
+
+#### 获取问答历史
+- **GET** `/qa/history`
+- **描述**: 获取用户问答历史（需认证）
+- **查询参数**:
+  - `limit`: 返回记录数量（默认10）
+  - `offset`: 偏移量（默认0）
+- **响应**:
+  ```json
+  {
+    "records": [
+      {
+        "id": 1,
+        "question": "string",
+        "answer": "string",
+        "created_at": "2023-01-01T00:00:00",
+        "group_id": 1
+      }
+    ]
+  }
+  ```
+
+### 4. 群组管理接口
+
+#### 创建群组
+- **POST** `/groups/create`
+- **描述**: 创建新群组（需认证）
+- **请求体**:
+  ```json
+  {
+    "name": "string",
+    "description": "string"
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "id": 1,
+    "name": "string",
+    "description": "string",
+    "owner_id": 1,
+    "created_at": "2023-01-01T00:00:00"
+  }
+  ```
+
+#### 加入群组
+- **POST** `/groups/join`
+- **描述**: 加入群组（需认证）
+- **请求体**:
+  ```json
+  {
+    "group_id": 1
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "status": "success",
+    "message": "成功加入群组"
   }
   ```
 

@@ -1,103 +1,181 @@
-# rag_engine
+# 灵析AI - RAG推理引擎
 
-> **RAG 推理引擎（Retrieval-Augmented Generation, M3）**  
+> **RAG 推理引擎（Retrieval-Augmented Generation）**  
 > 面向知识库问答 / 智能检索 / 微信小程序场景的工程级 RAG 推理模块
 
----
-```angular2html
-pip install sentence-transformers
-pip install torch
-pip install chromadb
+## 模块概述
 
-```
-## 一、模块定位与设计目标
+`rag_engine` 是灵析AI系统中的 **RAG推理核心层**，负责完成从「用户问题」到「最终回答」的完整推理流程。该模块采用模块化设计，支持高度定制化配置，能够处理复杂的知识库问答任务。
 
-`rag_engine` 是整个系统中的 **RAG 推理核心层**，负责完成从「用户问题」到「最终回答」的完整推理流程，核心目标包括：
-
+### 核心能力
 - ✅ **检索增强生成（RAG）**：结合向量检索结果进行回答生成
-- ✅ **工程可扩展性**：模块解耦，支持替换向量库 / LLM
-- ✅ **可解释性**：支持引用（citation）与来源追踪
-- ✅ **稳定性与可评估性**：内置评估器、降级与调试信息
-- ✅ **前端友好**：适配微信小程序（HTTP + WebSocket）
+- ✅ **多模态检索**：支持向量检索、关键词检索和混合检索
+- ✅ **智能查询理解**：意图识别、查询重写、上下文理解
+- ✅ **可解释性**：支持引用标注与来源追踪
+- ✅ **鲁棒性**：内置降级策略与异常处理机制
+- ✅ **性能优化**：支持流式响应与异步处理
+- ✅ **可扩展性**：模块解耦，支持多种向量库和LLM
 
----
-
-## 二、整体目录结构说明
+## 目录结构
 
 ```text
-rag_engine/                                # RAG推理引擎（M3）
+rag_engine/                                # RAG推理引擎
 ├── __init__.py                            # 模块初始化导出
 ├── config.py                              # 推理配置（top_k、阈值、超时、模板选择等）
 ├── types.py                               # 标准数据结构（Query/Hit/Answer/Citation等）
-├── orchestrator.py                       # 总编排：查询理解 → 混合检索 → Prompt → LLM
-├── evaluator.py                          # 置信度 / 覆盖率 / 引用完整性评估（可选）
-├── citations.py                          # 引用与来源格式化与校验
+├── orchestrator.py                        # 总编排：查询理解 → 混合检索 → Prompt → LLM
+├── evaluator.py                           # 置信度 / 覆盖率 / 引用完整性评估（可选）
+├── citations.py                           # 引用与来源格式化与校验
 │
-├── api/                                  # 对外接口层（推荐）
+├── api/                                   # 对外接口层（推荐）
 │   ├── __init__.py
-│   ├── http_api.py                       # FastAPI HTTP + WebSocket 接口
-│   └── rag_service.py                   # ask() 统一服务接口
+│   ├── http_api.py                        # FastAPI HTTP + WebSocket 接口
+│   └── rag_service.py                     # ask() 统一服务接口
 │
-├── query_understanding/                 # 查询理解模块
+├── query_understanding/                   # 查询理解模块
 │   ├── __init__.py
-│   ├── intent_classifier.py             # 意图分类（事实 / 总结 / 对比 / 步骤等）
-│   ├── query_rewrite.py                 # 查询重写（扩展、纠错、补全）
-│   └── context_state.py                 # 多轮上下文与会话状态管理
+│   ├── intent_classifier.py               # 意图分类（事实 / 总结 / 对比 / 步骤等）
+│   ├── query_rewrite.py                   # 查询重写（扩展、纠错、补全）
+│   └── context_state.py                   # 多轮上下文与会话状态管理
 │
-├── retrieval/                            # 混合检索层
+├── retrieval/                             # 混合检索层
 │   ├── __init__.py
-│   ├── vector_retriever.py              # 向量检索（VectorDBProxy）
-│   ├── keyword_retriever.py             # 关键词检索（BM25，可选）
-│   ├── fusion.py                        # 结果融合（去重 / 归一 / 排序）
-│   ├── filters.py                       # 过滤条件构造（knowledge_base_id 等）
-│   └── rerank.py                        # 重排（Cross-Encoder / LLM，可选）
+│   ├── vector_retriever.py                # 向量检索（VectorDBProxy）
+│   ├── keyword_retriever.py               # 关键词检索（BM25，可选）
+│   ├── fusion.py                          # 结果融合（去重 / 归一 / 排序）
+│   ├── filters.py                         # 过滤条件构造（knowledge_base_id 等）
+│   └── rerank.py                          # 重排（Cross-Encoder / LLM，可选）
 │
-├── prompt_builder/                      # Prompt 工程
+├── prompt_builder/                        # Prompt 工程
 │   ├── __init__.py
-│   ├── templates.py                     # Prompt 模板库（按意图 / 任务类型）
-│   ├── assembler.py                     # 上下文拼装（检索片段 + 引用编号）
-│   └── safety.py                        # 安全约束 / 防幻觉 / 引用要求
+│   ├── templates.py                       # Prompt 模板库（按意图 / 任务类型）
+│   ├── assembler.py                       # 上下文拼装（检索片段 + 引用编号）
+│   └── safety.py                          # 安全约束 / 防幻觉 / 引用要求
 │
-└── llm_client/                          # 大模型调用层
+└── llm_client/                            # 大模型调用层
     ├── __init__.py
-    ├── base.py                          # LLM Client 抽象接口
-    ├── deepseek_client.py               # DeepSeek API 实现
-    ├── fallback.py                      # 降级策略（失败返回检索片段等）
-    └── streaming.py                     # 流式响应封装
+    ├── base.py                            # LLM Client 抽象接口
+    ├── deepseek_client.py                 # DeepSeek API 实现
+    ├── fallback.py                        # 降级策略（失败返回检索片段等）
+    └── streaming.py                       # 流式响应封装
 ```
-## 三、核心执行流程（ask 调用链）
+
+## 核心执行流程
+
 ```
 用户问题
 ↓
 RAGService.ask()
 ↓
 Orchestrator（总编排）
-├─ 1) Query Understanding（理解问题）
-│   ├─ 意图分类（可选：事实/总结/对比/步骤）
-│   ├─ Query Rewrite（可选：扩展/纠错/补全）
-│   └─ 上下文注入（多轮对话：history / user_context）
+├─ 1) Query Understanding（查询理解）
+│   ├─ 意图分类（事实/总结/对比/步骤/列表等）
+│   ├─ 查询重写（扩展/纠错/补全）
+│   └─ 上下文管理（多轮对话历史）
 │
-├─ 2) Retrieval（找资料）
-│   ├─ 构建过滤条件（必做：knowledge_base_id / doc_id / tags）
-│   ├─ 向量检索（必做：top_k + 相似度阈值）
-│   ├─ 关键词检索（可选：BM25）
-│   └─ 融合/重排（可选：去重 + 归一化 + rerank）
+├─ 2) Hybrid Retrieval（混合检索）
+│   ├─ 构建过滤条件（knowledge_base_id / doc_id / tags）
+│   ├─ 向量检索（top_k + 相似度阈值）
+│   ├─ 关键词检索（BM25，可选）
+│   └─ 结果融合与重排（去重 + 归一化 + 重排）
 │
-├─ 3) Prompt Builder（组织上下文）
-│   ├─ 模板选择（按意图/场景：QA/总结/对比）
-│   ├─ 上下文裁剪（chunk 数/长度上限）
-│   ├─ 引用编号生成（[1][2][3]）
-│   └─ 安全约束（无资料→拒答/降级策略）
+├─ 3) Context Assembly（上下文组装）
+│   ├─ 检索结果排序与筛选
+│   ├─ 上下文长度裁剪
+│   ├─ 引用编号生成（[1][2][3]格式）
+│   └─ 安全检查（确保引用完整性）
 │
-├─ 4) LLM Client（DeepSeek）
-│   ├─ generate（HTTP 一次性返回）
-│   └─ stream（WebSocket 流式返回）
+├─ 4) Prompt Construction（提示词构建）
+│   ├─ 模板选择（根据意图选择合适模板）
+│   ├─ 上下文注入（检索结果 + 引用标注）
+│   └─ 安全约束（防幻觉 + 引用要求）
 │
-└─ 5) Postprocess（后处理）
-    ├─ 引用校验（回答中的 [n] 是否合法）
-    ├─ 质量评估（可选：grounded/覆盖率/完整度）
-    └─ 返回结果（answer + citations + debug）
+├─ 5) LLM Generation（大模型生成）
+│   ├─ 调用LLM（DeepSeek或其他提供商）
+│   ├─ 生成控制（温度、最大长度等）
+│   └─ 流式处理（支持WebSocket流式响应）
+│
+└─ 6) Post-processing（后处理）
+    ├─ 引用验证（检查回答中引用的合法性）
+    ├─ 质量评估（置信度、完整性评分）
+    ├─ 结果格式化（统一输出格式）
+    └─ 返回结果（answer + citations + confidence等）
 ```
+
+## 使用指南
+
+### 基础使用
+
+```python
+from core.rag_engine.api.rag_service import RAGService
+
+# 初始化RAG服务
+rag_service = RAGService()
+
+# 执行问答
+response = rag_service.ask(
+    question="公司政策是什么？",
+    knowledge_base_id="kb_company_docs",
+    user_id="user_123",
+    top_k=5,
+    temperature=0.3
+)
+
+print(response.answer)
+print(response.citations)
+```
+
+### 高级配置
+
+```python
+from core.rag_engine.config import RAGConfig
+
+# 自定义配置
+config = RAGConfig(
+    vector_top_k=8,           # 向量检索数量
+    keyword_top_k=3,          # 关键词检索数量
+    max_context_chars=4000,   # 上下文最大字符数
+    temperature=0.5,          # 生成温度
+    enable_rerank=True,       # 启用重排
+    require_citation=True     # 强制要求引用
+)
+
+rag_service = RAGService(config=config)
+```
+
+### 流式响应
+
+```python
+# 获取流式响应
+async for token in rag_service.ask_stream(
+    question="详细解释这个概念",
+    knowledge_base_id="kb_tech_docs",
+    user_id="user_123"
+):
+    print(token, end="", flush=True)
+```
+
+## 模块特色
+
+### 1. 智能查询理解
+- **意图分类**：准确识别用户问题类型（事实、总结、对比、步骤等）
+- **查询扩展**：自动扩展缩写和简短查询
+- **上下文感知**：理解多轮对话中的指代和省略
+
+### 2. 混合检索策略
+- **向量检索**：基于语义相似性的高精度检索
+- **关键词检索**：基于BM25的传统检索
+- **智能融合**：结合多种检索结果，提高召回率
+
+### 3. 高质量生成
+- **引用标注**：明确标注信息来源
+- **防幻觉机制**：确保回答基于检索到的文档
+- **置信度评估**：提供回答质量指标
+
+### 4. 鲁棒性设计
+- **降级策略**：当LLM不可用时返回检索结果
+- **异常处理**：完善的错误捕获和处理机制
+- **性能监控**：内置性能指标和调试信息
 ## 四. 核心模块说明
 
 
