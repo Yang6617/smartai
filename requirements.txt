@@ -1,0 +1,54 @@
+# 灵析知识库系统依赖文件
+# 用于确保在不同机器上都能正常运行演示脚本
+
+# Web框架和服务器
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# 数据库相关
+sqlalchemy==2.0.23
+sqlite3  # 内置库，用于SQLite支持
+
+# 数据处理和科学计算
+numpy==1.24.3
+pandas==2.0.3
+
+# 向量数据库
+chromadb==0.4.24
+
+# 嵌入模型
+sentence-transformers==2.6.1
+transformers==4.35.2
+torch>=1.13.0  # 用于sentence-transformers
+
+# 文档解析和处理
+unstructured[all-docs]==0.12.5  # 支持多种文档格式
+python-docx==0.8.11  # Word文档处理
+PyPDF2==3.0.1  # PDF处理
+pdfplumber==0.9.0  # PDF内容提取
+beautifulsoup4==4.12.2  # HTML/XML解析
+lxml==4.9.3  # XML处理
+
+# 图像处理和OCR
+opencv-python==4.8.1.78  # OpenCV
+Pillow==10.0.1  # 图像处理
+paddlepaddle==2.4.2  # PaddlePaddle深度学习框架
+paddleocr==2.7.0.3  # OCR处理
+
+# 环境和配置
+python-dotenv==1.0.0
+
+# 安全和认证
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP客户端
+httpx==0.25.2
+
+# 其他工具库
+pydantic==2.5.0
+pydantic-settings==2.1.0
+tiktoken==0.5.1  # 用于token计数
+requests==2.31.0
