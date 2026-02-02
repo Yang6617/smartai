@@ -116,18 +116,36 @@ class IntentClassifier:
         if "?" in q or "？" in q:
             scores[QueryIntent.FACT_QA] += 0.3
 
+        # 如果没有任何关键词匹配，但查询长度适中，考虑为FACT_QA
+        total_score = sum(scores.values())
+        if total_score == 0:
+            # 使用更宽松的判断标准，防止所有查询都被标记为UNKNOWN
+            if any(word in q.lower() for word in ["什么", "怎么", "如何", "哪个", "哪个", "what", "how", "where", "when", "why"]):
+                scores[QueryIntent.FACT_QA] = 0.5
+            elif len(q) > 5:
+                scores[QueryIntent.FACT_QA] = 0.3
+            else:
+                scores[QueryIntent.UNKNOWN] = 0.5
+
+        # 为简短查询增加额外的处理逻辑
+        if len(q) <= 5:
+            # 对于非常简短的查询，根据字符类型给予不同权重
+            if any(c.isdigit() for c in q):
+                scores[QueryIntent.FACT_QA] += 0.2
+            if any(c in "什么哪谁哪里怎么如何为何" for c in q):
+                scores[QueryIntent.FACT_QA] += 0.3
+            if any(c in "定义解释意思含义" for c in q):
+                scores[QueryIntent.DEFINITION] += 0.3
+            if any(c in "列表列举都有哪些" for c in q):
+                scores[QueryIntent.LIST] += 0.3
+            if any(c in "怎么做如何操作步骤流程" for c in q):
+                scores[QueryIntent.HOWTO] += 0.3
+
         # 选取得分最高的意图
         best_intent, best_score = max(scores.items(), key=lambda x: x[1])
-        if best_score <= 0:
-            return IntentResult(
-                intent=QueryIntent.UNKNOWN,
-                confidence=0.2,
-                signals={},
-                rationale="未匹配到明显意图信号",
-                language=language,
-            )
-
-        confidence = min(1.0, 0.25 + best_score / 4.0)
+        
+        # 计算置信度，确保即使分数较低也返回一个合理的意图
+        confidence = min(1.0, max(0.2, best_score / 2.0))  # 最低置信度0.2
         top3 = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:3]
         signals = {k.value: v for k, v in top3 if v > 0}
 

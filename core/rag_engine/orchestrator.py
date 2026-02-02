@@ -7,6 +7,7 @@ from core.rag_engine.query_understanding import (
     QueryRewriter,
     ConversationState,
 )
+from core.rag_engine.query_understanding.query_expander import QueryExpander, query_expander
 from core.rag_engine.retrieval import (
     VectorRetriever,
     VectorRetrieverConfig,
@@ -28,7 +29,7 @@ class RAGOrchestrator:
     RAG 推理引擎主编排器
 
     流程：
-    1. 查询理解（意图识别 + 重写）
+    1. 查询理解（意图识别 + 重写 + 扩展）
     2. 向量检索
     3. 结果融合 / 重排
     4. Prompt 组装
@@ -53,6 +54,7 @@ class RAGOrchestrator:
 
         self.intent_classifier = IntentClassifier()
         self.query_rewriter = QueryRewriter()
+        self.query_expander = query_expander  # 使用全局查询扩展器实例
         self.prompt_assembler = PromptAssembler()
 
         self.vector_retriever = VectorRetriever(
@@ -76,36 +78,40 @@ class RAGOrchestrator:
         conversation_state = conversation_state or ConversationState()
         conversation_state.add_user_message(question)
 
-        # 1️⃣ 意图识别
-        intent_result = self.intent_classifier.classify(question)
+        # 1️⃣ 查询扩展（针对简短或模糊查询）
+        expansion_result = self.query_expander.expand_query(question)
+        expanded_question = expansion_result.expanded_query
 
-        # 2️⃣ 查询重写
+        # 2️⃣ 意图识别（使用扩展后的查询）
+        intent_result = self.intent_classifier.classify(expanded_question)
+
+        # 3️⃣ 查询重写
         rewrite_result = self.query_rewriter.rewrite(
-            question,
+            expanded_question,  # 使用扩展后的查询
             hints={
                 "knowledge_base_id": conversation_state.user_context.knowledge_base_id
             },
         )
 
-        # 3️⃣ 构建检索过滤条件
+        # 4️⃣ 构建检索过滤条件
         rf = RetrievalFilter(
             knowledge_base_id=conversation_state.user_context.knowledge_base_id
         )
 
-        # 4️⃣ 向量检索
+        # 5️⃣ 向量检索
         vector_hits = self.vector_retriever.retrieve(
             collection_name=self.collection_name,
             query_embedding=query_embedding,
             rf=rf,
         )
 
-        # 5️⃣ 重排（可选）
+        # 6️⃣ 重排（可选）
         final_hits = self.reranker.rerank(
             rewrite_result.rewritten,
             vector_hits,
         )
 
-        # 6️⃣ 选择 Prompt 模板
+        # 7️⃣ 选择 Prompt 模板
         try:
             prompt_type = PromptType(intent_result.intent.value)
         except Exception:
@@ -113,7 +119,7 @@ class RAGOrchestrator:
 
         template = DEFAULT_TEMPLATES.get(prompt_type, DEFAULT_TEMPLATES[PromptType.DEFAULT])
 
-        # 7️⃣ 组装 Prompt
+        # 8️⃣ 组装 Prompt
         assembled = self.prompt_assembler.assemble(
             template=template,
             question=rewrite_result.rewritten,
@@ -123,6 +129,7 @@ class RAGOrchestrator:
         return {
             "intent": intent_result,
             "rewrite": rewrite_result,
+            "expansion": expansion_result,  # 添加扩展结果
             "prompt": assembled,
             "hits": final_hits,
         }

@@ -68,6 +68,12 @@ class VectorRetriever:
         where = build_where_filter(rf)
         where_document = build_where_document_filter(rf)
 
+        # 添加调试信息
+        print(f"[DEBUG] Vector Retriever - Querying collection: {collection_name}")
+        print(f"[DEBUG] Vector Retriever - Filter: {rf}")
+        print(f"[DEBUG] Vector Retriever - Where filter: {where}")
+        print(f"[DEBUG] Vector Retriever - Where document filter: {where_document}")
+
         # 这里直接调用你们的 proxy（其内部带稳定性重试/监控）
         results = self.db_proxy.query_vectors(
             collection_name=collection_name,
@@ -77,15 +83,19 @@ class VectorRetriever:
             where_document=where_document,
         )
 
+        print(f"[DEBUG] Vector Retriever - Query results count: {len(results) if results else 0}")
+
         hits: List[RetrievalHit] = []
         for r in results or []:
             hit = self._to_hit(r)
             if hit:
                 hits.append(hit)
 
-        # 按 score 降序（越大越相关）
-        hits.sort(key=lambda x: x.score, reverse=True)
-        return hits
+        # 按 score 降序（越大越相关）- 使用更高效的排序方法
+        hits = sorted(hits, key=lambda x: x.score, reverse=True)
+        
+        # 确保返回指定数量的结果
+        return hits[:k]
 
     def _to_hit(self, r: Dict[str, Any]) -> Optional[RetrievalHit]:
         """
