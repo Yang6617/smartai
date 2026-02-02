@@ -2,6 +2,7 @@
 Batch processor for converting text chunks to vectors and storing them in the vector database.
 """
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
@@ -195,6 +196,7 @@ class BatchVectorProcessor:
             
             # 将向量添加到数据库
             collection_name = f"kb_{delivery_data.get('team_id', 'default')}"
+            print(f"[DEBUG] Batch Processor - Storing in collection: {collection_name}")
             
             # 确保集合存在
             self.db_proxy.create_collection(collection_name)
@@ -208,7 +210,21 @@ class BatchVectorProcessor:
             )
             
             if success:
-                return {
+                # 确保数据持久化 - 等待一点时间让数据库完成写入
+                time.sleep(0.5)  # 增加等待时间
+                
+                # 验证数据是否可以被查询到（在当前连接上下文中）
+                try:
+                    count_in_current_connection = self.db_proxy.get_vector_count(collection_name)
+                    print(f"[DEBUG] Batch Processor - Count after add in current connection: {count_in_current_connection}")
+                    
+                    # 再等待一点时间确保数据被充分处理
+                    time.sleep(0.3)
+                    
+                except Exception as e:
+                    print(f"[DEBUG] Could not verify count in current connection: {e}")
+                
+                result = {
                     "success": True,
                     "message": f"Successfully processed {len(texts)} chunks",
                     "processed_count": len(texts),
@@ -216,15 +232,34 @@ class BatchVectorProcessor:
                     "ids": ids
                 }
             else:
-                return {
+                result = {
                     "success": False,
                     "message": "Failed to add vectors to database",
                     "processed_count": 0
                 }
                 
+            # 在返回结果前尝试持久化数据
+            try:
+                adapter = self.db_proxy.current_adapter
+                if hasattr(adapter, 'client') and adapter.client:
+                    if hasattr(adapter.client, 'persist'):
+                        print("[DEBUG] Calling client.persist() in batch processor")
+                        adapter.client.persist()
+                        time.sleep(0.3)  # 增加等待时间
+                    else:
+                        # 如果没有 persist 方法，等待更长时间让自动持久化完成
+                        print("[DEBUG] No persist method, waiting for auto-persistence...")
+                        time.sleep(1.0)
+            except Exception as e:
+                print(f"[DEBUG] Persist operation failed: {e}")
+                # 即使失败也等待一段时间
+                time.sleep(0.5)
+            
+            return result
+                
         finally:
-            # 断开数据库连接
-            self.db_proxy.disconnect()
+            # 不在此处断开数据库连接，让调用者控制连接生命周期
+            pass
     
     def batch_process_multiple_documents(self, documents_data: List[Dict[str, Any]], 
                                        model_alias: Optional[str] = None) -> List[Dict[str, Any]]:

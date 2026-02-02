@@ -54,10 +54,11 @@ class ChromaDBAdapter(VectorDatabaseInterface):
             from chromadb.config import Settings
             
             # Configure settings based on provided config
-            settings = Settings()
-            
-            if self.config.path:
-                settings = Settings(persist_directory=self.config.path)
+            # Use consistent settings to avoid conflicts with other instances
+            settings = Settings(
+                persist_directory=self.config.path or "./chroma_data",
+                anonymized_telemetry=False  # Disable telemetry to reduce conflicts
+            )
                 
             # Create client based on configuration
             # Prioritize persistent client over HTTP client to avoid connection issues
@@ -103,12 +104,19 @@ class ChromaDBAdapter(VectorDatabaseInterface):
         """
         try:
             if self.client:
-                # ChromaDB doesn't have explicit disconnect method
-                # We'll just clean up references
-                self.collections.clear()
-                self.client = None
-                return True
-            return True  # Already disconnected
+                # 强制持久化数据到磁盘
+                try:
+                    if hasattr(self.client, 'persist'):
+                        print("[ChromaDB Adapter] Calling persist() before disconnect")
+                        self.client.persist()
+                        import time
+                        time.sleep(0.3)  # 等待持久化完成
+                except Exception as e:
+                    print(f"[ChromaDB Adapter] Persist failed: {e}")
+                
+            self.client = None
+            self.collections.clear()  # Clear cached collections
+            return True
         except Exception as e:
             print(f"Error disconnecting from ChromaDB: {str(e)}")
             return False
@@ -116,22 +124,31 @@ class ChromaDBAdapter(VectorDatabaseInterface):
     def create_collection(self, collection_name: str, metadata: Optional[Dict] = None) -> bool:
         """
         Create a new collection in ChromaDB.
+        If the collection already exists, this method will return True without error.
         
         Args:
             collection_name: Name of the collection to create
             metadata: Optional metadata for the collection
             
         Returns:
-            True if collection creation is successful, False otherwise
+            True if collection creation is successful or if collection already exists, False otherwise
         """
         try:
             if self.client:
-                # Create collection with optional metadata
-                self.client.create_collection(
-                    name=collection_name,
-                    metadata=metadata
-                )
-                return True
+                # Check if collection already exists
+                try:
+                    existing_collection = self.client.get_collection(name=collection_name)
+                    # If we get here, collection exists
+                    print(f"Collection '{collection_name}' already exists")
+                    return True
+                except:
+                    # Collection doesn't exist, so create it
+                    self.client.create_collection(
+                        name=collection_name,
+                        metadata=metadata
+                    )
+                    print(f"Created collection '{collection_name}'")
+                    return True
             else:
                 raise Exception("Not connected to ChromaDB")
         except Exception as e:
@@ -163,26 +180,31 @@ class ChromaDBAdapter(VectorDatabaseInterface):
 
     def get_collection(self, collection_name: str):
         """
-        Get a reference to an existing collection.
+        Get a reference to an existing collection, creating it if it doesn't exist.
         
         Args:
-            collection_name: Name of the collection to retrieve
+            collection_name: Name of the collection to retrieve or create
             
         Returns:
-            Collection object if found, None otherwise
+            Collection object
         """
         try:
             if self.client:
-                if collection_name in self.collections:
-                    return self.collections[collection_name]
+                # Try to get the collection, create it if it doesn't exist
+                try:
+                    collection = self.client.get_collection(name=collection_name)
+                except:
+                    # Collection doesn't exist, create it
+                    print(f"Collection '{collection_name}' does not exist, creating it...")
+                    collection = self.client.create_collection(name=collection_name)
                 
-                collection = self.client.get_collection(name=collection_name)
+                # Update cache with fresh collection reference
                 self.collections[collection_name] = collection
                 return collection
             else:
                 raise Exception("Not connected to ChromaDB")
         except Exception as e:
-            print(f"Error getting collection '{collection_name}' from ChromaDB: {str(e)}")
+            print(f"Error getting/creating collection '{collection_name}' from ChromaDB: {str(e)}")
             return None
 
     def add_vectors(
@@ -208,26 +230,128 @@ class ChromaDBAdapter(VectorDatabaseInterface):
         """
         try:
             if self.client:
+                # First, try to get the collection
                 collection = self.get_collection(collection_name)
+                
                 if not collection:
                     # Create collection if it doesn't exist
                     if not self.create_collection(collection_name):
                         return False
                     collection = self.get_collection(collection_name)
                 
+                # Check if the vector dimensions match the existing collection
+                # If vectors list is not empty, check the first vector's dimension
+                if vectors is not None and len(vectors) > 0:
+                    # Convert numpy arrays to lists if needed
+                    if hasattr(vectors[0], 'tolist'):
+                        new_dimension = len(vectors[0].tolist())
+                    else:
+                        new_dimension = len(vectors[0])
+                    
+                    # Try to get the existing collection's dimension by retrieving one record
+                    try:
+                        # Attempt to get collection count to see if it's empty
+                        existing_count = collection.count()
+                        
+                        if existing_count > 0:
+                            # If collection has records, try to get one to check dimension
+                            try:
+                                sample_result = collection.peek(limit=1)
+                                if sample_result and isinstance(sample_result, dict) and sample_result.get('embeddings') and len(sample_result['embeddings']) > 0:
+                                    # Convert numpy arrays to lists if needed
+                                    first_embedding = sample_result['embeddings'][0]
+                                    if hasattr(first_embedding, 'tolist'):
+                                        existing_dimension = len(first_embedding.tolist())
+                                    else:
+                                        existing_dimension = len(first_embedding)
+                                    
+                                    if existing_dimension != new_dimension:
+                                        print(f"[ChromaDB Adapter] Dimension mismatch detected: "
+                                              f"existing={existing_dimension}, new={new_dimension}")
+                                        print(f"[ChromaDB Adapter] Recreating collection '{collection_name}' "
+                                              f"with new dimension {new_dimension}")
+                                        
+                                        # Delete and recreate the collection with correct dimension
+                                        self.delete_collection(collection_name)
+                                        
+                                        # Create new collection with the new dimension by adding first vector
+                                        collection = self.client.create_collection(name=collection_name)
+                                        
+                                        # Add the first vector to establish the correct dimension
+                                        collection.add(
+                                            embeddings=[vectors[0]],
+                                            ids=[ids[0]],
+                                            metadatas=[metadatas[0]] if metadatas else None,
+                                            documents=[documents[0]] if documents else None
+                                        )
+                                        
+                                        # Add remaining vectors if any
+                                        if len(vectors) > 1:
+                                            collection.add(
+                                                embeddings=vectors[1:],
+                                                ids=ids[1:],
+                                                metadatas=metadatas[1:] if metadatas else None,
+                                                documents=documents[1:] if documents else None
+                                            )
+                                        return True
+                            except Exception as peek_error:
+                                print(f"[ChromaDB Adapter] Warning: Could not peek existing dimension: {peek_error}")
+                                # Continue with normal operation
+                    except Exception as count_error:
+                        print(f"[ChromaDB Adapter] Warning: Could not get collection count: {count_error}")
+                
                 # Add embeddings to the collection
-                collection.add(
-                    embeddings=vectors,
-                    ids=ids,
-                    metadatas=metadatas,
-                    documents=documents
-                )
+                # Ensure vectors are in the right format for ChromaDB
+                if vectors is not None and len(vectors) > 0:
+                    # Convert numpy arrays to lists if needed
+                    processed_vectors = []
+                    for v in vectors:
+                        if hasattr(v, 'tolist'):
+                            processed_vectors.append(v.tolist())
+                        else:
+                            processed_vectors.append(v)
+                    
+                    collection.add(
+                        embeddings=processed_vectors,
+                        ids=ids,
+                        metadatas=metadatas,
+                        documents=documents
+                    )
+                else:
+                    print(f"[ChromaDB Adapter] Warning: No vectors to add to collection '{collection_name}'")
+                    return False
                 return True
             else:
                 raise Exception("Not connected to ChromaDB")
         except Exception as e:
-            print(f"Error adding vectors to collection '{collection_name}' in ChromaDB: {str(e)}")
-            return False
+            # Handle dimension mismatch error specifically
+            error_msg = str(e).lower()
+            if "dimension" in error_msg and ("expecting" in error_msg or "got" in error_msg):
+                print(f"[ChromaDB Adapter] Dimension mismatch error detected: {str(e)}")
+                print(f"[ChromaDB Adapter] Recreating collection '{collection_name}' to fix dimension")
+                
+                # Delete and recreate the collection
+                self.delete_collection(collection_name)
+                
+                # Retry creating and adding vectors to the new collection
+                collection = self.get_collection(collection_name)
+                if collection:
+                    try:
+                        collection.add(
+                            embeddings=vectors,
+                            ids=ids,
+                            metadatas=metadatas,
+                            documents=documents
+                        )
+                        return True
+                    except Exception as retry_e:
+                        print(f"[ChromaDB Adapter] Retry failed after recreating collection: {retry_e}")
+                        return False
+                else:
+                    return False
+            else:
+                print(f"Error adding vectors to collection '{collection_name}' in ChromaDB: {str(e)}")
+                return False
 
     def query_vectors(
         self,

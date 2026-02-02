@@ -59,6 +59,25 @@ class VectorDBProxy:
         """
         return self.current_adapter.connect()
     
+    def force_persist(self) -> bool:
+        """
+        Force data persistence before disconnection.
+        
+        Returns:
+            True if persist operation is successful, False otherwise
+        """
+        try:
+            if self.current_adapter and hasattr(self.current_adapter, 'client') and self.current_adapter.client:
+                if hasattr(self.current_adapter.client, 'persist'):
+                    print("[VectorDBProxy] Calling persist() to ensure data persistence")
+                    self.current_adapter.client.persist()
+                    import time
+                    time.sleep(0.5)  # Wait for persistence to complete
+                    return True
+        except Exception as e:
+            print(f"[VectorDBProxy] Force persist failed: {e}")
+        return False
+    
     def disconnect(self) -> bool:
         """
         Close connection to the vector database.
@@ -66,6 +85,9 @@ class VectorDBProxy:
         Returns:
             True if disconnection is successful, False otherwise
         """
+        # Force persistence before disconnecting
+        self.force_persist()
+        
         # Close all pooled connections
         self.pool.close_all_connections()
         # Disconnect the main adapter

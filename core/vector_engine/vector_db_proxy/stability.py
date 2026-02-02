@@ -172,7 +172,7 @@ class StabilityManager:
         if operation_name == "add_vectors":
             required_fields = ['vectors', 'ids']
             for field in required_fields:
-                if field not in params or not params[field]:
+                if field not in params or (params[field] is not None and len(params[field]) == 0):
                     return False
             # Validate that vectors and ids have the same length
             if len(params['vectors']) != len(params['ids']):
@@ -180,12 +180,12 @@ class StabilityManager:
         elif operation_name == "query_vectors":
             required_fields = ['query_vector']
             for field in required_fields:
-                if field not in params or not params[field]:
+                if field not in params or (params[field] is not None and len(params[field]) == 0):
                     return False
         elif operation_name == "delete_vectors":
             required_fields = ['ids']
             for field in required_fields:
-                if field not in params or not params[field]:
+                if field not in params or (params[field] is not None and len(params[field]) == 0):
                     return False
         
         return True
