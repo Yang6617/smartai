@@ -4,9 +4,30 @@
 """
 import os
 import tempfile
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from pathlib import Path
 from uuid import uuid4
+
+# 导入dotenv以支持从.env文件加载环境变量
+try:
+    from dotenv import load_dotenv
+    # 加载项目根目录下的.env文件
+    project_root = Path(__file__).parent.parent.parent
+    env_file = project_root / ".env"
+    
+    # 也检查core目录下的.env文件
+    core_env_file = Path(__file__).parent / ".env"
+    
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"已加载环境变量文件: {env_file}")
+    elif core_env_file.exists():
+        load_dotenv(core_env_file)
+        print(f"已加载环境变量文件: {core_env_file}")
+    else:
+        print(f"未找到环境变量文件: {env_file} 或 {core_env_file}")
+except ImportError:
+    print("警告: python-dotenv未安装，无法从.env文件加载环境变量")
 
 # 导入文档预处理器模块
 from core.doc_preprocessor.format_router.format_router import FormatRouter
@@ -44,6 +65,14 @@ class CoreServiceInterface:
         self.chunk_config = ChunkConfig(default_chunk_size=500)
         self.chunking_engine = SmartChunkingEngine(config=self.chunk_config)
         
+        # 初始化向量数据库代理（先初始化数据库代理）
+        try:
+            db_config = VectorDBConfig()
+            self.vector_db_proxy = VectorDBProxy(db_config)
+        except Exception as e:
+            print(f"警告: 无法初始化向量数据库代理 - {e}")
+            self.vector_db_proxy = None
+        
         # 初始化向量引擎组件
         try:
             # 创建向量引擎配置，指定正确的模型路径
@@ -51,17 +80,12 @@ class CoreServiceInterface:
             model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model")
             batch_config = BatchProcessorConfig(model_path=model_dir)
             self.batch_processor = BatchVectorProcessor(config=batch_config)
+            
+            # 让批量处理器使用与服务接口相同的数据库代理，确保数据一致性
+            # 注意：我们会在_batch_vectors方法中动态替换，而不是在这里固定替换
         except FileNotFoundError as e:
             print(f"警告: 无法初始化批量处理器 - {e}")
             self.batch_processor = None
-        
-        # 初始化向量数据库代理
-        try:
-            db_config = VectorDBConfig()
-            self.vector_db_proxy = VectorDBProxy(db_config)
-        except Exception as e:
-            print(f"警告: 无法初始化向量数据库代理 - {e}")
-            self.vector_db_proxy = None
         
         # 初始化嵌入模型加载器
         try:
@@ -97,18 +121,45 @@ class CoreServiceInterface:
             # 初始化LLM客户端（使用DeepSeek或其他）
             # 这里使用占位符，实际部署时应从配置或环境变量获取API密钥
             try:
-                self.llm_client = DeepSeekClient(api_key=os.getenv("DEEPSEEK_API_KEY", "your-api-key-here"))
+                # 首先检查是否有有效的API密钥
+                api_key = os.getenv("DEEPSEEK_API_KEY")
+                if api_key and len(api_key) > 10:  # 简单验证密钥长度
+                    self.llm_client = DeepSeekClient(api_key=api_key)
+                else:
+                    print("警告: DEEPSEEK_API_KEY 未设置或无效，将使用模拟响应")
+                    # 创建一个模拟的客户端或暂时设置为None，等待动态配置
+                    self.llm_client = None
             except Exception as e:
                 print(f"警告: 无法初始化LLM客户端 - {e}")
                 self.llm_client = None
                 
             # 初始化RAG服务
-            if self.vector_db_proxy and self.embedding_model_manager and self.llm_client:
+            if self.vector_db_proxy and self.embedding_model_manager:
+                # 即使LLM客户端不可用，我们也初始化RAG服务，但要处理LLM不可用的情况
+                if not self.llm_client:
+                    print("警告: LLM客户端不可用，RAG服务将无法生成最终答案")
+                
+                # 尝试加载默认模型
+                available_models = self.embedding_model_manager.list_available_models()
+                print(f"可用的嵌入模型: {available_models}")
+                
+                # 尝试加载bge-m3模型作为默认模型
+                default_model_loaded = False
+                if "bge-m3" in available_models:
+                    default_model_loaded = self.embedding_model_manager.load_model("bge-m3", alias="default")
+                    print(f"{'成功' if default_model_loaded else '失败'}加载bge-m3模型作为'default'别名")
+                
+                # 如果bge-m3不可用，尝试其他可能的模型
+                if not default_model_loaded and available_models:
+                    fallback_model = available_models[0]
+                    default_model_loaded = self.embedding_model_manager.load_model(fallback_model, alias="default")
+                    print(f"使用回退模型 {fallback_model} 作为'default'别名: {'成功' if default_model_loaded else '失败'}")
+                
                 self.rag_config = AskConfig()
                 self.rag_service = RAGService(
                     db_proxy=self.vector_db_proxy,
                     embedding_model_manager=self.embedding_model_manager,
-                    llm_client=self.llm_client,
+                    llm_client=self.llm_client,  # 可能为None
                     cfg=self.rag_config
                 )
             else:
@@ -308,11 +359,11 @@ class CoreServiceInterface:
         }
     
     def _store_vectors(self,
-                      chunks: list,
-                      document_id: str,
-                      user_id: str,
-                      knowledge_base_id: str,
-                      custom_metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                    chunks: list,
+                    document_id: str,
+                    user_id: str,
+                    knowledge_base_id: str,
+                    custom_metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         存储向量的核心逻辑
         将分块结果通过向量引擎进行批量处理并存储到向量数据库
@@ -327,33 +378,16 @@ class CoreServiceInterface:
         Returns:
             存储结果字典
         """
+        # 添加调用计数
+        if not hasattr(self, '_store_vectors_call_count'):
+            self._store_vectors_call_count = 0
+        self._store_vectors_call_count += 1
+        print(f"  [_store_vectors] 第 {self._store_vectors_call_count} 次调用，处理 {len(chunks)} 个文本块...")
+        
         print(f"  开始向量化和存储...")
         
-        # 准备批量处理的数据
-        batch_data = []
-        for i, chunk in enumerate(chunks):
-            # 构建每块的元数据
-            chunk_metadata = {
-                "document_id": document_id,
-                "chunk_index": i,
-                "element_type": chunk.get("element_type", "unknown"),
-                "structure_path": chunk.get("structure_path", []),
-                "user_id": user_id,
-                "knowledge_base_id": knowledge_base_id
-            }
-            
-            # 添加自定义元数据
-            if custom_metadata:
-                chunk_metadata.update(custom_metadata)
-            
-            batch_data.append({
-                "text": chunk.get("text", ""),
-                "metadata": chunk_metadata,
-                "chunk_id": f"{document_id}_chunk_{i}"
-            })
-        
         # 检查向量引擎组件是否可用
-        if self.batch_processor and self.vector_db_proxy:
+        if self.batch_processor and self.vector_db_proxy and self.embedding_model_manager:
             # 准备交付数据给批量处理器
             delivery_data = {
                 "document_id": document_id,
@@ -374,20 +408,50 @@ class CoreServiceInterface:
                 }
                 delivery_data["chunks"].append(chunk_data)
             
-            # 使用批量处理器处理数据
+            # 使用批量处理器处理数据（只处理向量化，不直接存储到数据库）
             try:
                 # 加载模型（使用正确的模型名称）
                 if not self.batch_processor._model_loaded:
-                    self.batch_processor.load_model("bge-m3")  # 使用正确的模型名称
+                    print(f"[DEBUG] Loading embedding model...")
+                    load_result = self.batch_processor.load_model("bge-m3")  # 使用正确的模型名称
+                    print(f"[DEBUG] Model load result: {load_result}")
                 
+                if not self.batch_processor._model_loaded:
+                    raise RuntimeError("Failed to load embedding model")
+                
+                # 处理向量化，但不存储到batch_processor的数据库
+                # 我们将直接使用服务接口的数据库代理来存储
                 processed_result = self.batch_processor.process_batch(delivery_data)
                 
-                # 存储到向量数据库
+                # 检查处理结果
                 if processed_result.get("success", False):
+                    # 这里我们不使用batch_processor的数据库代理，而是使用服务接口的代理
+                    # 但process_batch已经完成了向量化和存储
+                    # 我们需要一种方法让batch_processor使用服务接口的数据库代理
+                    
+                    # 让batch_processor使用服务接口的数据库代理
+                    original_db_proxy = self.batch_processor.db_proxy
+                    self.batch_processor.db_proxy = self.vector_db_proxy
+                    
+                    # 重新处理以确保使用正确的数据库代理
+                    processed_result = self.batch_processor.process_batch(delivery_data)
+                    
+                    # 恢复原始数据库代理
+                    self.batch_processor.db_proxy = original_db_proxy
+                    
                     store_result = processed_result
                 else:
                     store_result = {"error": processed_result.get("message", "批量处理失败")}
-                    
+                
+                # 获取处理后的计数（通过服务接口的代理）
+                collection_name = f"kb_{knowledge_base_id}"
+                try:
+                    count_after_processing = self.vector_db_proxy.get_vector_count(collection_name)
+                    print(f"[DEBUG] Count after processing with service proxy: {count_after_processing}")
+                except Exception as e:
+                    print(f"[DEBUG] Could not get count after processing: {e}")
+                    count_after_processing = 0
+                
             except Exception as e:
                 print(f"批量处理失败: {str(e)}")
                 store_result = {"error": str(e)}
@@ -412,7 +476,7 @@ class CoreServiceInterface:
     def ask_question(self,
                    question: str,
                    user_id: str,
-                   knowledge_base_id: str,
+                   knowledge_base_id: Union[str, int],  # 接受字符串或整数类型
                    model_alias: str = "default",
                    conversation_state: Optional[ConversationState] = None,
                    stream: bool = False,
@@ -443,11 +507,21 @@ class CoreServiceInterface:
                     "debug": {}
                 }
             
+            # 确保knowledge_base_id是字符串类型
+            knowledge_base_id_str = str(knowledge_base_id).strip()
+            
+            # 添加调试信息
+            print(f"[DEBUG] Service Interface - Original knowledge_base_id: {knowledge_base_id}")
+            print(f"[DEBUG] Service Interface - Knowledge base ID type: {type(knowledge_base_id)}")
+            print(f"[DEBUG] Service Interface - Processed knowledge_base_id_str: {knowledge_base_id_str}")
+            
             # 设置对话状态
             if conversation_state is None:
                 conversation_state = ConversationState()
-                conversation_state.user_context.knowledge_base_id = knowledge_base_id
-                conversation_state.user_context.user_id = user_id
+            
+            # 确保知识库ID被正确设置到对话状态中
+            conversation_state.user_context.knowledge_base_id = knowledge_base_id_str
+            conversation_state.user_context.user_id = user_id
             
             print(f"开始处理用户提问: {question[:50]}...")
             
@@ -472,7 +546,7 @@ class CoreServiceInterface:
             result["status"] = "success"
             result["question"] = question
             result["user_id"] = user_id
-            result["knowledge_base_id"] = knowledge_base_id
+            result["knowledge_base_id"] = knowledge_base_id_str
             
             print(f"用户提问处理完成")
             return result
@@ -522,7 +596,7 @@ def upload_file_interface(file_path: str,
 
 def ask_question_interface(question: str,
                          user_id: str,
-                         knowledge_base_id: str,
+                         knowledge_base_id: Union[str, int],  # 接受字符串或整数类型
                          model_alias: str = "default",
                          stream: bool = False,
                          top_k: Optional[int] = None) -> Dict[str, Any]:
