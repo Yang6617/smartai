@@ -1,0 +1,31 @@
+<!-- pages/login/login.wxml -->
+<view class="container">
+  <view class="login-header">
+    <text class="title">灵析知识库</text>
+    <text class="subtitle">个人与团队共享知识平台</text>
+  </view>
+  
+  <view class="login-content">
+    <view class="logo-area">
+      <text class="logo-icon">📚</text>
+    </view>
+    
+    <view class="login-btn-container">
+      <!-- 微信登录按钮 -->
+      <button 
+        class="login-btn wechat-login" 
+        open-type="getUserInfo"
+        bind:getuserinfo="onWechatLoginWithUserInfo"
+        disabled="{{isLoggingIn}}"
+      >
+        <text class="btn-text">
+          {{isLoggingIn ? '登录中...' : '微信一键登录'}}
+        </text>
+      </button>
+    </view>
+    
+    <view wx:if="{{loginError}}" class="error-message">
+      <text>{{loginError}}</text>
+    </view>
+  </view>
+</view>

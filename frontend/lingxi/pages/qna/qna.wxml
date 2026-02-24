@@ -1,0 +1,55 @@
+<!-- pages/qna/qna.wxml -->
+<view class="container">
+  <!-- 固定顶部模块：知识库信息 -->
+  <view class="fixed-header">
+    <view class="knowledge-info">
+      <text class="kb-name">{{knowledgeBaseName}}</text>
+      <text class="kb-desc">基于知识库问答</text>
+    </view>
+  </view>
+
+  <!-- 可滚动的中间内容区域 -->
+  <scroll-view 
+    class="scrollable-content" 
+    scroll-y="true" 
+    scroll-top="{{scrollTop}}"
+    lower-threshold="50"
+    bindscrolltolower="scrollToLower"
+  >
+    <view class="messages">
+      <view 
+        wx:for="{{messages}}" 
+        wx:key="id" 
+        class="message-item {{item.role == 'user' ? 'user-message' : 'assistant-message'}}"
+      >
+        <view class="message-header">
+          <text class="message-role">{{item.role == 'user' ? '提问' : '灵析'}}</text>
+          <view class="divider"></view>
+        </view>
+        <view class="message-content">
+          <text>{{item.content}}</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 固定底部模块：输入区域 -->
+  <view class="fixed-input-area">
+    <textarea
+      class="input"
+      value="{{inputValue}}"
+      bindinput="onInput"
+      placeholder="基于知识库内容提问..."
+      auto-height="true"
+      maxlength="500"
+    />
+    <button 
+      class="send-btn" 
+      bindtap="sendQuestion"
+      disabled="{{!inputValid || sending}}"
+    >
+      <text wx:if="{{!sending}}">发送</text>
+      <text wx:else>发送中...</text>
+    </button>
+  </view>
+</view>

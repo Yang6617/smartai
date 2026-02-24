@@ -1,0 +1,63 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <view class="header">
+    <view class="knowledge-info">
+      <text class="kb-name">{{knowledgeBaseName}}</text>
+      <text class="kb-desc">知识库文件列表</text>
+    </view>
+    <button class="upload-btn-small" bindtap="showUploadModal">
+      <text>上传文件</text>
+    </button>
+  </view>
+
+  <!-- 文件列表 -->
+  <view class="files-section">
+    <view class="section-title">知识库文件</view>
+    <view class="file-list">
+      <view 
+        wx:for="{{fileList}}" 
+        wx:key="id" 
+        class="file-item"
+      >
+        <text class="file-icon">📄</text>
+        <view class="file-details">
+          <text class="file-name">{{item.original_filename}}</text>
+          <text class="file-info">{{item.file_size}} | {{item.upload_time}}</text>
+        </view>
+      </view>
+      
+      <view wx:if="{{fileList.length === 0}}" class="empty-files">
+        <text>暂无文件</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 智能问答入口 -->
+  <view class="qna-entry-section">
+    <button class="qna-entry-btn" bindtap="goToQnaPage">
+      <text>基于知识库提问</text>
+    </button>
+  </view>
+
+  <!-- 上传文件模态框 -->
+  <view wx:if="{{showUploadModalFlag}}" class="modal-overlay" catchtap="hideUploadModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">上传文件</text>
+        <text class="close-btn" bindtap="hideUploadModal">×</text>
+      </view>
+      <view class="upload-area" bindtap="chooseFile">
+        <text class="upload-icon">📁</text>
+        <text class="upload-text">{{selectedFile ? selectedFile.name : '点击选择文件'}}</text>
+      </view>
+      <button 
+        class="confirm-upload-btn" 
+        bindtap="uploadFile"
+        disabled="{{!selectedFile || uploading}}"
+      >
+        <text wx:if="{{!uploading}}">确认上传</text>
+        <text wx:else>上传中...</text>
+      </button>
+    </view>
+  </view>
+</view>

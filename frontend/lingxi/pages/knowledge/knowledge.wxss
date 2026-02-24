@@ -1,0 +1,102 @@
+/** pages/knowledge/knowledge.wxss **/
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 固定顶部标题和按钮 */
+.fixed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background-color: #fff;
+  border-bottom: 1rpx solid #eee;
+  z-index: 100;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to right, #3ec896, #3cc51f);
+  color: white;
+  border: none;
+  border-radius: 30rpx;
+  padding: 15rpx 25rpx;
+  font-size: 28rpx;
+  min-width: 140rpx;
+}
+
+.add-icon {
+  margin-right: 8rpx;
+  font-size: 32rpx;
+}
+
+/* 可滚动内容区域 */
+.scrollable-content {
+  flex: 1;
+  height: calc(100vh - 100rpx); /* 减去头部高度 */
+}
+
+.knowledge-list {
+  padding: 20rpx 30rpx;
+  margin-top: 20rpx;
+}
+
+.knowledge-item {
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+}
+
+.item-icon {
+  font-size: 40rpx;
+  margin-right: 20rpx;
+}
+
+.item-content {
+  flex: 1;
+}
+
+.item-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+
+.item-desc {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.item-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 100rpx 0;
+}
+
+.empty-text {
+  color: #999;
+  font-size: 28rpx;
+}

@@ -1,0 +1,39 @@
+<!-- pages/knowledge/knowledge.wxml -->
+<view class="container">
+  <!-- 固定顶部标题和按钮 -->
+  <view class="fixed-header">
+    <text class="title">我的知识库</text>
+    <button class="create-btn" bindtap="createKnowledgeBase">
+      <text class="add-icon">+</text>
+      <text class="btn-text">新建知识库</text>
+    </button>
+  </view>
+  
+  <!-- 可滚动的知识库列表 -->
+  <scroll-view 
+    class="scrollable-content" 
+    scroll-y="true"
+    enable-back-to-top="true"
+  >
+    <view class="knowledge-list">
+      <view 
+        wx:for="{{knowledgeBases}}" 
+        wx:key="id" 
+        class="knowledge-item"
+        bindtap="enterKnowledgeBase"
+        data-id="{{item.id}}"
+      >
+        <view class="item-icon">📚</view>
+        <view class="item-content">
+          <text class="item-title">{{item.name}}</text>
+          <text class="item-desc">{{item.description || '暂无描述'}}</text>
+        </view>
+        <view class="item-arrow">></view>
+      </view>
+      
+      <view wx:if="{{knowledgeBases.length === 0}}" class="empty-state">
+        <text class="empty-text">暂无知识库，点击右上角创建</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,63 @@
+/** pages/login/login.wxss **/
+.login-header {
+  text-align: center;
+  margin: 100rpx 0 80rpx 0;
+}
+
+.login-header .title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.login-header .subtitle {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.login-content {
+  padding: 0 60rpx;
+}
+
+.logo-area {
+  text-align: center;
+  margin: 60rpx 0;
+}
+
+.logo-icon {
+  font-size: 120rpx;
+}
+
+.login-btn-container {
+  margin: 80rpx 0 40rpx 0;
+}
+
+.login-btn {
+  width: 100%;
+  height: 80rpx;
+  border-radius: 40rpx;
+  border: none;
+  background: linear-gradient(to right, #3ec896, #3cc51f);
+  color: white;
+  font-size: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-btn[disabled] {
+  background: #ccc;
+}
+
+.error-message {
+  margin-top: 40rpx;
+  padding: 20rpx;
+  background-color: #fff0f0;
+  border: 1rpx solid #ffcccc;
+  border-radius: 10rpx;
+  text-align: center;
+  color: #ff0000;
+  font-size: 28rpx;
+}

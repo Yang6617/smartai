@@ -1,0 +1,302 @@
+/** pages/index/index.wxss **/
+
+page {
+  height: 100%;
+}
+
+page {
+  height: 100%;
+}
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  padding: 20rpx;
+  box-sizing: border-box;
+  padding-top: 0;
+}
+
+.header {
+  background: white;
+  padding: 20rpx;
+  border-radius: 10rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.knowledge-info {
+  flex: 1;
+  text-align: left;
+}
+
+.kb-name {
+  display: block;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+
+.kb-desc {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.upload-btn-small {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 12rpx;
+  background: linear-gradient(to right, #3ec896, #3cc51f);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  border: none;
+  margin-left: 20rpx;
+}
+
+.qna-entry-section {
+  padding: 20rpx 15rpx;
+  background: white;
+  border-radius: 10rpx;
+  margin-top: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+}
+
+.qna-entry-btn {
+  width: 100%;
+  background: linear-gradient(to right, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  border-radius: 20rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+}
+
+.files-section {
+  background: white;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  padding-bottom: 10rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.file-list {
+  max-height: 300rpx;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 15rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.file-icon {
+  font-size: 36rpx;
+  margin-right: 15rpx;
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 5rpx;
+}
+
+.file-info {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.empty-files {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.qa-section {
+  background: white;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.05);
+}
+
+.chat-container {
+  height: 300rpx;
+  background: #f8f9fa;
+  border-radius: 20rpx;
+  margin-bottom: 20rpx;
+  padding: 30rpx;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.messages {
+  min-height: 100%;
+}
+
+.message-item {
+  display: flex;
+  margin-bottom: 20rpx;
+  align-items: flex-start;
+}
+
+.user-message {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  border-radius: 50%;
+  margin: 0 10rpx;
+  font-size: 24rpx;
+}
+
+.content {
+  max-width: 70%;
+  padding: 15rpx;
+  border-radius: 15rpx;
+  background: #f0f8ff;
+  word-wrap: break-word;
+  word-break: break-all;
+  font-size: 26rpx;
+}
+
+.user-message .content {
+  background: #d4edda;
+}
+
+.input-area {
+  display: flex;
+  align-items: flex-end;
+}
+
+.input {
+  flex: 1;
+  min-height: 80rpx;
+  max-height: 150rpx;
+  padding: 15rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 10rpx;
+  margin-right: 15rpx;
+  background: white;
+  font-size: 26rpx;
+}
+
+.send-btn {
+  background: linear-gradient(to right, #3ec896, #3cc51f);
+  color: white;
+  border: none;
+  border-radius: 10rpx;
+  padding: 20rpx 20rpx;
+  font-size: 26rpx;
+}
+
+.send-btn[disabled] {
+  background: #ccc;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20rpx;
+  width: 80%;
+  max-width: 600rpx;
+  padding: 40rpx;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.close-btn {
+  font-size: 40rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.upload-area {
+  border: 2rpx dashed #ddd;
+  border-radius: 10rpx;
+  padding: 40rpx 20rpx;
+  text-align: center;
+  margin-bottom: 30rpx;
+}
+
+.upload-icon {
+  display: block;
+  font-size: 60rpx;
+  margin-bottom: 15rpx;
+}
+
+.upload-text {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.confirm-upload-btn {
+  width: 100%;
+  background: linear-gradient(to right, #3ec896, #3cc51f);
+  color: white;
+  border: none;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.confirm-upload-btn[disabled] {
+  background: #ccc;
+}
