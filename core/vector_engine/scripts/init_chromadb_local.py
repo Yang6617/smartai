@@ -25,7 +25,7 @@ def init_chromadb_persistent():
     # 配置数据库连接（使用持久化模式）
     config = VectorDBConfig(
         db_type="chromadb",
-        path="../../data/chroma_persistent_data",  # 本地持久化路径
+        path="./chroma_data",  # 使用与VectorDBConfig相同的默认路径
         host="",  # 留空以使用持久化模式
         port=0,   # 留空以使用持久化模式
         pool_size=2,
@@ -135,7 +135,7 @@ def create_sample_data_for_kb_direct(knowledge_base_id: str, num_samples: int = 
     """
     config = VectorDBConfig(
         db_type="chromadb",
-        path="../../data/chroma_persistent_data",
+        path="./chroma_data",
         host="",  # 留空以使用持久化模式
         port=0
     )

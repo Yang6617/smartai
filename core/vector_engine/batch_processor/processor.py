@@ -124,6 +124,17 @@ class BatchVectorProcessor:
             "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         
+        # 从chunk的metadata或format_metadata中提取bbox信息（用于图片等有位置信息的文档）
+        bbox = None
+        if "metadata" in chunk and chunk["metadata"] and isinstance(chunk["metadata"], dict):
+            bbox = chunk["metadata"].get("bbox")
+        if not bbox and "format_metadata" in chunk and chunk["format_metadata"] and isinstance(chunk["format_metadata"], dict):
+            bbox = chunk["format_metadata"].get("bbox")
+        
+        if bbox and isinstance(bbox, list) and len(bbox) >= 4:
+            # ChromaDB不支持列表作为metadata值，将其转换为字符串
+            metadata["bbox"] = ",".join(str(x) for x in bbox)
+        
         return metadata
     
     def _generate_chunk_id(self, document_id: str, chunk_index: int) -> str:

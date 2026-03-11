@@ -28,6 +28,10 @@ class RetrievalHit:
     source_type: Optional[str] = None
     knowledge_base_id: Optional[str] = None
     uploader_id: Optional[str] = None
+    
+    # 位置信息（用于图片等有位置信息的文档）
+    y_top: Optional[float] = None
+    y_bottom: Optional[float] = None
 
 
 @dataclass
@@ -130,6 +134,20 @@ class VectorRetriever:
             hit.source_type = md.get("source_type")
             hit.knowledge_base_id = md.get("knowledge_base_id")
             hit.uploader_id = md.get("uploader_id")
+            
+            # 提取位置信息（用于图片等有位置信息的文档）
+            if "bbox" in md and md["bbox"]:
+                # 处理字符串格式的bbox（从ChromaDB读取）
+                if isinstance(md["bbox"], str):
+                    bbox_list = [float(x) for x in md["bbox"].split(",")]
+                elif isinstance(md["bbox"], list):
+                    bbox_list = md["bbox"]
+                else:
+                    bbox_list = []
+                
+                if len(bbox_list) >= 4:
+                    hit.y_top = float(bbox_list[1])  # min_y
+                    hit.y_bottom = float(bbox_list[3])  # max_y
 
         return hit
 

@@ -24,7 +24,7 @@ def reset_chromadb():
     # 配置数据库连接
     config = VectorDBConfig(
         db_type="chromadb",
-        path="../../data/chroma_persistent_data",  # 本地持久化路径
+        path="./chroma_data",  # 使用与VectorDBConfig相同的默认路径
         host="",  # 留空以使用持久化模式
         port=0,   # 留空以使用持久化模式
         pool_size=2,

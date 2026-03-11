@@ -15,6 +15,7 @@ from core.rag_engine.retrieval import (
     FusionConfig,
     fuse_hits,
     Reranker,
+    RerankConfig,
 )
 from core.rag_engine.prompt_builder import (
     PromptAssembler,
@@ -62,7 +63,12 @@ class RAGOrchestrator:
             VectorRetrieverConfig(top_k=self.cfg.vector_top_k),
         )
 
-        self.reranker = Reranker()
+        self.reranker = Reranker(
+            RerankConfig(
+                enabled=self.cfg.rerank_enabled,
+                top_k=self.cfg.vector_top_k
+            )
+        )
 
     def run(
         self,

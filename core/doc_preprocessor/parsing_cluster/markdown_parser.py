@@ -65,6 +65,9 @@ class MarkdownParser(DocumentParser):
         # 按行分割内容
         lines = content.split('\n')
         
+        # 跟踪标题层级路径
+        heading_stack = []  # 存储 (heading_level, title) 元组
+        
         i = 0
         while i < len(lines):
             line = lines[i].strip()
@@ -76,7 +79,21 @@ class MarkdownParser(DocumentParser):
             # 检查是否为标题
             heading_match = self.heading_pattern.match(lines[i])
             if heading_match:
-                element = self._create_heading_element(heading_match, element_index)
+                hashes, title = heading_match.groups()
+                heading_level = len(hashes)
+                
+                # 更新标题栈
+                # 移除所有层级大于等于当前标题的标题
+                while heading_stack and heading_stack[-1][0] >= heading_level:
+                    heading_stack.pop()
+                
+                # 添加当前标题
+                heading_stack.append((heading_level, title))
+                
+                # 构建structure_path
+                structure_path = [h[1] for h in heading_stack]
+                
+                element = self._create_heading_element(heading_match, element_index, structure_path)
                 elements.append(element)
                 element_index += 1
                 i += 1
@@ -187,7 +204,7 @@ class MarkdownParser(DocumentParser):
         
         return elements
     
-    def _create_heading_element(self, match, element_index: int) -> Element:
+    def _create_heading_element(self, match, element_index: int, structure_path: List[str] = None) -> Element:
         """创建标题Element"""
         hashes, title = match.groups()
         heading_level = len(hashes)
@@ -200,6 +217,10 @@ class MarkdownParser(DocumentParser):
             "character_count": len(title),
             "is_structural": True
         }
+        
+        # 如果提供了structure_path，添加到metadata中
+        if structure_path:
+            metadata["structure_path"] = structure_path
         
         element = Element(
             raw_content=match.group(0),  # 完整的标题行

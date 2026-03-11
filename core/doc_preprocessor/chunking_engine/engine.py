@@ -49,9 +49,12 @@ class SmartChunkingEngine:
         Returns:
             格式化的分块结果
         """
+        # 预处理：将子标题的内容合并到父标题中
+        merged_elements = self._merge_child_content_to_parent(elements)
+        
         all_chunks = []
         
-        for element in elements:
+        for element in merged_elements:
             element_chunks = self._process_element(
                 element=element,
                 file_type=file_type,
@@ -70,6 +73,7 @@ class SmartChunkingEngine:
                 element_type=chunk_data.get("element_type"),
                 chunk_type=self._get_chunk_type_from_element_type(chunk_data.get("element_type")),
                 metadata=chunk_data.get("metadata"),
+                format_metadata=chunk_data.get("format_metadata"),
                 overlap_info=chunk_data.get("overlap_info"),
                 confidence=chunk_data.get("confidence", 1.0)
             )
@@ -84,6 +88,76 @@ class SmartChunkingEngine:
             file_name=file_name,
             file_type=file_type
         )
+    
+    def _merge_child_content_to_parent(self, elements: List[Element]) -> List[Element]:
+        """
+        将子标题的内容合并到父标题中
+        
+        Args:
+            elements: Element对象列表
+            
+        Returns:
+            合并后的Element对象列表
+        """
+        if not elements:
+            return elements
+        
+        merged_elements = []
+        i = 0
+        
+        while i < len(elements):
+            current_element = elements[i]
+            
+            # 如果当前Element是标题，检查是否有子标题
+            if current_element.element_type == "heading":
+                heading_level = current_element.format_metadata.get("heading_level", 0)
+                
+                # 收集后续的子标题和内容
+                child_content_parts = []
+                j = i + 1
+                
+                while j < len(elements):
+                    next_element = elements[j]
+                    next_heading_level = next_element.format_metadata.get("heading_level", 0)
+                    
+                    # 如果下一个Element是子标题（层级更深的标题）
+                    if next_element.element_type == "heading" and next_heading_level > heading_level:
+                        # 收集子标题的内容
+                        child_content_parts.append(next_element.raw_content)
+                        j += 1
+                    # 如果下一个Element是列表项，也收集到父标题中
+                    elif next_element.element_type == "list_item":
+                        child_content_parts.append(next_element.raw_content)
+                        j += 1
+                    # 如果下一个Element是段落，也收集到父标题中
+                    elif next_element.element_type == "paragraph":
+                        child_content_parts.append(next_element.raw_content)
+                        j += 1
+                    else:
+                        # 如果层级不更深，说明已经离开当前标题的范围
+                        break
+                
+                # 如果有子标题内容，将它们添加到当前标题的chunks中
+                if child_content_parts:
+                    # 创建新的Element，包含子标题内容
+                    new_element = Element(
+                        raw_content=current_element.raw_content + "\n\n" + "\n".join(child_content_parts),
+                        element_type=current_element.element_type,
+                        element_index=current_element.element_index,
+                        source_format=current_element.source_format,
+                        format_metadata=current_element.format_metadata.copy(),
+                        parser_confidence=current_element.parser_confidence
+                    )
+                    merged_elements.append(new_element)
+                else:
+                    merged_elements.append(current_element)
+                
+                i = j
+            else:
+                merged_elements.append(current_element)
+                i += 1
+        
+        return merged_elements
     
     def _process_element(self, 
                         element: Element, 
@@ -128,6 +202,7 @@ class SmartChunkingEngine:
                 "element_type": element.element_type,
                 "structure_path": element_structure_path,
                 "metadata": chunk_data.get("metadata", {}),
+                "format_metadata": element.format_metadata,
                 "overlap_info": {
                     "prefix": chunk_data.get("overlap_prefix", ""),
                     "suffix": chunk_data.get("overlap_suffix", ""),

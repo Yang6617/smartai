@@ -42,7 +42,7 @@ class FileTypeIdentifier:
         'text/xml': [(b'<?xml', 0, None, True), (br'<\?xml', 0, None, True)],
         
         # Markdown
-        'text/markdown': [('# ', 0, None, True), ('## ', 0, None, True), ('- ', 0, None, True), ('* ', 0, None, True)],
+        'text/markdown': [(b'# ', 0, None, True), (b'## ', 0, None, True), (b'- ', 0, None, True), (b'* ', 0, None, True)],
     }
 
     @classmethod

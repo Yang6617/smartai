@@ -99,14 +99,14 @@ class CoreServiceInterface:
             # 初始化嵌入模型管理器（用于RAG服务）
             # 指定正确的模型目录路径 - 使用项目根目录下的model文件夹
             from pathlib import Path
-            # 获取项目根目录（从当前文件向上两级）
-            project_root = Path(__file__).parent.parent
-            model_dir = str(project_root / "model")
+            # 优先使用相对于当前工作目录的model目录（备用模型目录）
+            model_dir = str(Path.cwd() / "model")
             
-            # 如果模型目录不存在，尝试使用当前工作目录下的model目录
+            # 如果当前工作目录下不存在，则尝试使用项目根目录下的model目录
             if not Path(model_dir).exists():
-                # 尝试使用当前工作目录下的model目录
-                model_dir = str(Path.cwd() / "model")
+                # 获取项目根目录（从当前文件向上两级）
+                project_root = Path(__file__).parent.parent
+                model_dir = str(project_root / "model")
                 
                 # 如果还是不存在，尝试从当前文件的路径构建
                 if not Path(model_dir).exists():
@@ -404,7 +404,8 @@ class CoreServiceInterface:
                     "chunk_index": chunk.get("chunk_index", i),
                     "element_type": chunk.get("element_type", "unknown"),
                     "structure_path": chunk.get("structure_path", []),
-                    "metadata": chunk.get("metadata", {})
+                    "metadata": chunk.get("metadata", {}),
+                    "format_metadata": chunk.get("format_metadata", {})
                 }
                 delivery_data["chunks"].append(chunk_data)
             
@@ -419,29 +420,17 @@ class CoreServiceInterface:
                 if not self.batch_processor._model_loaded:
                     raise RuntimeError("Failed to load embedding model")
                 
-                # 处理向量化，但不存储到batch_processor的数据库
-                # 我们将直接使用服务接口的数据库代理来存储
+                # 让batch_processor使用服务接口的数据库代理
+                original_db_proxy = self.batch_processor.db_proxy
+                self.batch_processor.db_proxy = self.vector_db_proxy
+                
+                # 处理向量化并存储到正确的数据库
                 processed_result = self.batch_processor.process_batch(delivery_data)
                 
-                # 检查处理结果
-                if processed_result.get("success", False):
-                    # 这里我们不使用batch_processor的数据库代理，而是使用服务接口的代理
-                    # 但process_batch已经完成了向量化和存储
-                    # 我们需要一种方法让batch_processor使用服务接口的数据库代理
-                    
-                    # 让batch_processor使用服务接口的数据库代理
-                    original_db_proxy = self.batch_processor.db_proxy
-                    self.batch_processor.db_proxy = self.vector_db_proxy
-                    
-                    # 重新处理以确保使用正确的数据库代理
-                    processed_result = self.batch_processor.process_batch(delivery_data)
-                    
-                    # 恢复原始数据库代理
-                    self.batch_processor.db_proxy = original_db_proxy
-                    
-                    store_result = processed_result
-                else:
-                    store_result = {"error": processed_result.get("message", "批量处理失败")}
+                # 恢复原始数据库代理
+                self.batch_processor.db_proxy = original_db_proxy
+                
+                store_result = processed_result
                 
                 # 获取处理后的计数（通过服务接口的代理）
                 collection_name = f"kb_{knowledge_base_id}"

@@ -28,6 +28,7 @@ class Chunk:
     element_type: Optional[str] = None  # 元素类型
     chunk_type: Optional[ChunkType] = None  # 分块类型
     metadata: Optional[Dict[str, Any]] = None  # 元数据
+    format_metadata: Optional[Dict[str, Any]] = None  # 格式特定元数据（用于存储bbox等信息）
     overlap_info: Optional[Dict[str, Any]] = None  # 重叠信息
     confidence: Optional[float] = None  # 置信度
     
@@ -47,6 +48,8 @@ class Chunk:
             result["chunk_type"] = self.chunk_type.value
         if self.metadata is not None:
             result["metadata"] = self.metadata
+        if self.format_metadata is not None:
+            result["format_metadata"] = self.format_metadata
         if self.overlap_info is not None:
             result["overlap_info"] = self.overlap_info
         if self.confidence is not None:
@@ -71,6 +74,7 @@ class Chunk:
             element_type=data.get('element_type'),
             chunk_type=chunk_type,
             metadata=data.get('metadata'),
+            format_metadata=data.get('format_metadata'),
             overlap_info=data.get('overlap_info'),
             confidence=data.get('confidence')
         )

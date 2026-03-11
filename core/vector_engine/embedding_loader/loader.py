@@ -23,19 +23,18 @@ logger = logging.getLogger(__name__)
 class EmbeddingModelLoader:
     """嵌入模型加载器类"""
     
-    def __init__(self, model_dir: str = "../../model"):
+    def __init__(self, model_dir: str = "model"):
         """
         初始化模型加载器
         
         Args:
-            model_dir: 模型目录路径，默认为"../../model"
+            model_dir: 模型目录路径，默认为"model"（相对于当前工作目录）
         """
         self.model_dir = Path(model_dir).resolve()
         self.loaded_models: Dict[str, Any] = {}
         
         # 确保模型目录存在，如果不存在则记录警告但不抛出异常
         if not self.model_dir.exists():
-            print(f"警告: 模型目录不存在: {self.model_dir}")
             # 尝试使用当前工作目录下的model目录
             alt_model_dir = Path.cwd() / "model"
             if alt_model_dir.exists():
