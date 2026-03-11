@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from .vector_retriever import RetrievalHit
+from core.rag_engine.retrieval.vector_retriever import RetrievalHit
 
 
 @dataclass
