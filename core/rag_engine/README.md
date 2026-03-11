@@ -44,6 +44,8 @@ rag_engine/                                # RAG推理引擎
 │   ├── keyword_retriever.py               # 关键词检索（BM25，可选）
 │   ├── fusion.py                          # 结果融合（去重 / 归一 / 排序）
 │   ├── filters.py                         # 过滤条件构造（knowledge_base_id 等）
+│   ├── chunk_expander.py                  # 检索结果邻接块扩展
+│   ├── chunk_store.py                     # 知识片段存储与管理
 │   └── rerank.py                          # 重排（Cross-Encoder / LLM，可选）
 │
 ├── prompt_builder/                        # Prompt 工程
@@ -73,7 +75,7 @@ Orchestrator（总编排）
 │   ├─ 查询重写（扩展/纠错/补全）
 │   └─ 上下文管理（多轮对话历史）
 │
-├─ 2) Hybrid Retrieval（混合检索）
+├─ 2) Hybrid Retrieval（（Vector + BM25））
 │   ├─ 构建过滤条件（knowledge_base_id / doc_id / tags）
 │   ├─ 向量检索（top_k + 相似度阈值）
 │   ├─ 关键词检索（BM25，可选）
@@ -566,6 +568,19 @@ async for token in rag_service.ask_stream(
 **功能：** 重排精排
 - cross-encoder（更准但慢）
 - LLM rerank（更灵活但成本高）
+
+---
+
+#### 2.6 `chunk_store.py`
+**功能：** 知识片段存储与管理
+- BM25 关键词检索语料
+- Chunk Expansion（邻接块扩展）
+- Debug 与数据回放
+
+---
+#### 2.7 `chunk_expander.py`
+**功能：** 检索结果邻接块扩展
+
 
 ---
 

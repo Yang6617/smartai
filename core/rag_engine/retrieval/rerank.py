@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 import re
 
-from .vector_retriever import RetrievalHit
+from core.rag_engine.retrieval.vector_retriever import RetrievalHit
 
 
 @dataclass

@@ -7,9 +7,9 @@ Prompt Builder 模块
 - 引用标注与安全约束
 """
 
-from .templates import PromptTemplate, PromptType,DEFAULT_TEMPLATES
-from .assembler import PromptAssembler, AssembledPrompt
-from .safety import SafetyGuard
+from core.rag_engine.prompt_builder.templates import PromptTemplate, PromptType,DEFAULT_TEMPLATES
+from core.rag_engine.prompt_builder.assembler import PromptAssembler, AssembledPrompt
+from core.rag_engine.prompt_builder.safety import SafetyGuard
 
 __all__ = [
     "PromptTemplate",

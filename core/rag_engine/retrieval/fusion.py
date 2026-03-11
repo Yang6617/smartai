@@ -2,30 +2,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
-
-from .vector_retriever import RetrievalHit
+import copy
+from core.rag_engine.retrieval.vector_retriever import RetrievalHit
 
 
 @dataclass
 class FusionConfig:
-    weight_vector: float = 1.0
-    weight_keyword: float = 0.3
+    """
+        RRF 融合配置
+        """
     top_k: int = 8
+    rrf_k: int = 60
+    weight_vector: float = 1.0
+    weight_keyword: float = 0.8
 
 
 def _dedupe_key(hit: RetrievalHit) -> str:
+    """
+       用统一主键做去重：
+       优先 document_id + chunk_index
+       否则 fallback 到 id
+       """
     if hit.document_id is not None and hit.chunk_index is not None:
         return f"{hit.document_id}::chunk::{hit.chunk_index}"
     return f"id::{hit.id}"
 
 
-def _minmax_norm(scores: List[float]) -> List[float]:
-    if not scores:
-        return []
-    mn, mx = min(scores), max(scores)
-    if mx - mn < 1e-9:
-        return [1.0 for _ in scores]
-    return [(s - mn) / (mx - mn) for s in scores]
+def _clone_hit(hit: RetrievalHit) -> RetrievalHit:
+    """
+    避免直接修改原始 hits，减少副作用
+    """
+    cloned = copy.copy(hit)
+    cloned.metadata = dict(hit.metadata or {})
+    return cloned
 
 
 def fuse_hits(
@@ -34,51 +43,69 @@ def fuse_hits(
     cfg: FusionConfig,
 ) -> List[RetrievalHit]:
     """
-    将两路 hits 融合为一路（返回按融合分排序后的 hits）
+    使用 RRF（Reciprocal Rank Fusion）融合两路召回结果。
+
+    score = sum(weight / (rrf_k + rank))
+
+    说明：
+    - rank 从 1 开始
+    - 不依赖原始 score 尺度
+    - 更适合 vector + BM25 混合检索
     """
-    # 归一化各自分数，避免量纲不同
-    v_scores = _minmax_norm([h.score for h in vector_hits])
-    k_scores = _minmax_norm([h.score for h in keyword_hits])
+    merged: Dict[str, RetrievalHit] = {}
+    rrf_scores: Dict[str, float] = {}
+    debug_info: Dict[str, Dict[str, float]] = {}
 
-    v_map: Dict[str, Tuple[RetrievalHit, float]] = {}
-    for h, ns in zip(vector_hits, v_scores):
-        v_map[_dedupe_key(h)] = (h, ns)
+    # 向量召回
+    for rank, hit in enumerate(vector_hits, start=1):
+        key = _dedupe_key(hit)
+        if key not in merged:
+            merged[key] = _clone_hit(hit)
 
-    k_map: Dict[str, Tuple[RetrievalHit, float]] = {}
-    for h, ns in zip(keyword_hits, k_scores):
-        k_map[_dedupe_key(h)] = (h, ns)
+        contribution = cfg.weight_vector * (1.0 / (cfg.rrf_k + rank))
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + contribution
 
-    keys = set(v_map.keys()) | set(k_map.keys())
-    merged: List[RetrievalHit] = []
+        if key not in debug_info:
+            debug_info[key] = {"vector": 0.0, "keyword": 0.0}
+        debug_info[key]["vector"] = contribution
 
-    for key in keys:
-        v = v_map.get(key)
-        k = k_map.get(key)
+    # 关键词召回
+    for rank, hit in enumerate(keyword_hits, start=1):
+        key = _dedupe_key(hit)
+        if key not in merged:
+            merged[key] = _clone_hit(hit)
 
-        if v and k:
-            # 两路都命中：融合分
-            base_hit = v[0]
-            fused_score = cfg.weight_vector * v[1] + cfg.weight_keyword * k[1]
-            base_hit.score = float(fused_score)
-            # 可选：把 keyword 的信息并入 metadata（避免丢信号）
-            if base_hit.metadata is None:
-                base_hit.metadata = {}
-            base_hit.metadata["fusion"] = {"vector": v[1], "keyword": k[1]}
-            merged.append(base_hit)
-        elif v:
-            base_hit = v[0]
-            base_hit.score = float(cfg.weight_vector * v[1])
-            if base_hit.metadata is None:
-                base_hit.metadata = {}
-            base_hit.metadata["fusion"] = {"vector": v[1], "keyword": 0.0}
-            merged.append(base_hit)
-        else:
-            base_hit = k[0]
-            base_hit.score = float(cfg.weight_keyword * k[1])
-            if base_hit.metadata is None:
-                base_hit.metadata = {}
-            base_hit.metadata["fusion"] = {"vector": 0.0, "keyword": k[1]}
-            merged.append(base_hit)
+        contribution = cfg.weight_keyword * (1.0 / (cfg.rrf_k + rank))
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + contribution
 
-    merged.sort(key=lambda x: x.score, reverse=True)
-    return merged[: cfg.top_k]
+        if key not in debug_info:
+            debug_info[key] = {"vector": 0.0, "keyword": 0.0}
+        debug_info[key]["keyword"] = contribution
+
+    results: List[RetrievalHit] = []
+    for key, hit in merged.items():
+        hit.score = float(rrf_scores[key])
+        hit.retriever = "fusion"
+
+        if hit.metadata is None:
+            hit.metadata = {}
+
+        hit.metadata["fusion"] = {
+            "method": "rrf",
+            "score": rrf_scores[key],
+            "vector": debug_info[key]["vector"],
+            "keyword": debug_info[key]["keyword"],
+        }
+
+        results.append(hit)
+
+    results.sort(key=lambda x: x.score, reverse=True)
+
+    # 给调试更直观一点的 rank
+    for idx, hit in enumerate(results, start=1):
+        try:
+            hit.rank = idx
+        except Exception:
+            pass
+
+    return results[: cfg.top_k]

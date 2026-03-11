@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass,field
 from typing import Any, Dict, List, Optional
 
 # 这里不硬依赖你们 core 包路径，避免后续目录调整时难改；
 # 实际工程里你可以改为：from core.vector_engine.vector_db_proxy.proxy import VectorDBProxy
 from core.vector_engine.vector_db_proxy.proxy import VectorDBProxy
 
-from .filters import RetrievalFilter, build_where_filter, build_where_document_filter
+from core.rag_engine.retrieval.filters import RetrievalFilter, build_where_filter, build_where_document_filter
 
 
 @dataclass
@@ -15,13 +15,20 @@ class RetrievalHit:
     """
     统一的检索命中结构（后续 prompt_builder 直接消费）
     """
+    # ===== 基础字段 =====
     id: str
-    score: float                     # 越大越好（我们会把 distance 归一化成 score）
+    score: float  # 越大越好
+
     text: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: Optional[List[float]] = None
 
-    # 常用字段做一层便捷映射（可为空）
+    # ===== 调试 / 融合用 =====
+    raw_distance: Optional[float] = None
+    retriever: Optional[str] = None
+    rank: Optional[int] = None
+
+    # ===== 常用 metadata 映射 =====
     document_id: Optional[str] = None
     chunk_index: Optional[int] = None
     source_info: Optional[str] = None
@@ -42,7 +49,7 @@ class VectorRetrieverConfig:
     top_k: int = 8
     include_embeddings: bool = False
     # distance -> score 的转换策略：
-    # - chroma 默认 distances 一般是“越小越相似”（如 L2/余弦距离形式）
+    # - chroma 默认 distances 一般是"越小越相似"（如 L2/余弦距离形式）
     # 我们用 score = 1 / (1 + distance) 做简单转化
     score_mode: str = "inverse_distance"
 
@@ -101,6 +108,48 @@ class VectorRetriever:
         # 确保返回指定数量的结果
         return hits[:k]
 
+    def retrieve_multi(
+            self,
+            collection_name: str,
+            query_embeddings: List[List[float]],
+            rf: Optional[RetrievalFilter] = None,
+            per_query_top_k: Optional[int] = None,
+            final_top_k: Optional[int] = None,
+    ) -> List[RetrievalHit]:
+        rf = rf or RetrievalFilter()
+        per_k = int(per_query_top_k or self.config.top_k)
+        final_k = int(final_top_k or self.config.top_k)
+
+        all_hits = []
+        for idx, emb in enumerate(query_embeddings):
+            hits = self.retrieve(
+                collection_name=collection_name,
+                query_embedding=emb,
+                rf=rf,
+                top_k=per_k,
+            )
+            for rank, h in enumerate(hits, start=1):
+                if h.metadata is None:
+                    h.metadata = {}
+                h.metadata["query_variant_index"] = idx
+                h.metadata["vector_rank"] = rank
+            all_hits.extend(hits)
+
+        dedup = {}
+        for h in all_hits:
+            key = f"{h.document_id}::{h.chunk_index}" if h.document_id and h.chunk_index is not None else h.id
+            if key not in dedup or h.score > dedup[key].score:
+                dedup[key] = h
+
+        return sorted(dedup.values(), key=lambda x: x.score, reverse=True)[:final_k]
+
+    @staticmethod
+    def _safe_int(v):
+        try:
+            return int(v)
+        except Exception:
+            return None
+    
     def _to_hit(self, r: Dict[str, Any]) -> Optional[RetrievalHit]:
         """
         将 VectorDBProxy 的返回结果转换成 RetrievalHit
@@ -111,11 +160,17 @@ class VectorRetriever:
         if not _id:
             return None
 
+        md = r.get("metadata") or {}
+        if not isinstance(md, dict):
+            md = {}
+        text = r.get("document")
+        if text is not None:
+            text = str(text).strip()
+        if not text:
+            return None
+
         distance = r.get("distance")
         score = self._distance_to_score(distance)
-
-        md = r.get("metadata") or {}
-        text = r.get("document")
         emb = r.get("embedding") if self.config.include_embeddings else None
 
         hit = RetrievalHit(
@@ -124,12 +179,14 @@ class VectorRetriever:
             text=text,
             metadata=md,
             embedding=emb,
+            raw_distance=float(distance) if distance is not None else None,
+            retriever="vector",
         )
 
         # 抽取常用字段（与 batch_processor / db_design 对齐）
         if isinstance(md, dict):
             hit.document_id = md.get("document_id")
-            hit.chunk_index = md.get("chunk_index")
+            hit.chunk_index = self._safe_int(md.get("chunk_index"))
             hit.source_info = md.get("source_info")
             hit.source_type = md.get("source_type")
             hit.knowledge_base_id = md.get("knowledge_base_id")
@@ -153,7 +210,7 @@ class VectorRetriever:
 
     def _distance_to_score(self, distance: Any) -> float:
         """
-        将 distance 转成“越大越好”的 score，便于融合/排序
+        将 distance 转成"越大越好"的 score，便于融合/排序
         """
         if distance is None:
             return 0.0
@@ -167,4 +224,5 @@ class VectorRetriever:
             return 1.0 / (1.0 + max(d, 0.0))
         if mode == "neg_distance":
             return -d
-        # 默认 fallb
+        # 默认 fallback
+        return 1.0 / (1.0 + max(d, 0.0))
