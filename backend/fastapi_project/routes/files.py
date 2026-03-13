@@ -12,6 +12,7 @@ from database.db_config import get_db
 from utils.security import get_current_user, logger
 from utils.helpers import determine_file_type
 from utils.file_storage import LocalFileStorage
+from core.service_interface import upload_file_interface
 
 router = APIRouter(prefix="/file", tags=["文件管理"])
 
@@ -29,7 +30,7 @@ async def upload_file(
     db: Session = Depends(get_db)
 ):
     """
-    上传文件到个人空间或群组共享
+    上传文件到个人空间或群组共享，并自动解析和向量化
     """
     # 限制文件大小 (例如最大50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -81,6 +82,27 @@ async def upload_file(
         db.commit()
         db.refresh(db_file_info)
         logger.info(f"用户 {current_user.username} 上传了文件 {actual_original_filename}")
+        
+        # 获取文件完整路径用于解析
+        file_path = storage.get_file_path(storage_path)
+        
+        # 使用知识库ID（群组ID作为知识库ID）
+        knowledge_base_id = str(group_id_int) if group_id_int else f"user_{current_user.id}"
+        
+        # 自动解析和向量化文件
+        try:
+            logger.info(f"开始解析文件: {actual_original_filename} (知识库ID: {knowledge_base_id})")
+            parse_result = upload_file_interface(
+                file_path=file_path,
+                user_id=str(current_user.id),
+                knowledge_base_id=knowledge_base_id,
+                file_name=actual_original_filename
+            )
+            logger.info(f"文件解析完成: {parse_result}")
+        except Exception as e:
+            logger.error(f"文件解析失败: {str(e)}")
+            # 解析失败不影响文件上传成功，但记录错误
+        
         return db_file_info
     except Exception as e:
         # 清理已保存的文件
@@ -88,131 +110,3 @@ async def upload_file(
         db.rollback()
         logger.error(f"保存文件信息时发生错误: {str(e)}")
         raise HTTPException(status_code=500, detail="保存文件信息时发生错误")
-
-
-@router.get("/list", response_model=List[FileInfoResponse], summary="高级检索文档")
-async def list_knowledge(
-    group_id: Optional[int] = Query(None, description="群组ID，如果不指定则查询个人空间"),
-    category: Optional[str] = Query(None, description="文件分类"),
-    file_type: Optional[FileType] = Query(None, description="文件类型"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(100, le=100, description="返回的最大记录数"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    支持按群组、分类、关键词搜索文档，支持排序和分页
-    """
-    query = db.query(FileInfo)
-    
-    # 如果指定了群组ID，验证用户是否属于该群组
-    if group_id is not None:
-        membership = db.query(GroupMember).filter(
-            GroupMember.user_id == current_user.id,
-            GroupMember.group_id == group_id
-        ).first()
-        if not membership:
-            raise HTTPException(status_code=403, detail="您不是目标群组的成员，无法访问该群组的文件")
-        query = query.filter(FileInfo.group_id == group_id)
-    else:
-        query = query.filter(FileInfo.uploader_id == current_user.id).filter(FileInfo.group_id.is_(None))
-        
-    if category is not None:
-        query = query.filter(FileInfo.file_category == category)
-        
-    if file_type is not None:
-        query = query.filter(FileInfo.file_type == file_type.value)
-        
-    if keyword is not None:
-        query = query.filter(FileInfo.original_filename.contains(keyword))
-    
-    # 排序和分页
-    files = query.order_by(FileInfo.upload_time.desc()).offset(skip).limit(limit).all()
-    return files
-
-
-@router.get("/{file_id}", summary="下载文件")
-async def download_file(
-    file_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    下载指定ID的文件
-    """
-    # 获取文件信息
-    file_info = db.query(FileInfo).filter(FileInfo.id == file_id).first()
-    if not file_info:
-        raise HTTPException(status_code=404, detail="文件不存在")
-    
-    # 检查用户是否有权限访问此文件
-    if file_info.group_id is not None:
-        # 如果文件属于某个群组，检查用户是否属于该群组
-        membership = db.query(GroupMember).filter(
-            GroupMember.user_id == current_user.id,
-            GroupMember.group_id == file_info.group_id
-        ).first()
-        if not membership:
-            raise HTTPException(status_code=403, detail="您没有权限访问此文件")
-    else:
-        # 如果是个人文件，检查是否为当前用户上传
-        if file_info.uploader_id != current_user.id:
-            raise HTTPException(status_code=403, detail="您没有权限访问此文件")
-    
-    # 使用存储系统加载文件
-    try:
-        file_data = storage.load_file(file_info.filename)
-        # 使用实际的内容类型，如果为空则使用默认值
-        content_type = file_info.content_type or "application/octet-stream"
-        return Response(
-            content=file_data,
-            media_type=content_type,
-            headers={
-                "Content-Disposition": f"attachment; filename*=utf-8''{file_info.original_filename}"
-            }
-        )
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="文件未找到")
-    except Exception as e:
-        logger.error(f"加载文件失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="加载文件失败")
-
-
-@router.delete("/{file_id}", summary="删除文件")
-async def delete_file(
-    file_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    删除指定ID的文件
-    """
-    # 获取文件信息
-    file_info = db.query(FileInfo).filter(FileInfo.id == file_id).first()
-    if not file_info:
-        raise HTTPException(status_code=404, detail="文件不存在")
-    
-    # 检查用户是否有权限删除此文件
-    if file_info.uploader_id != current_user.id:
-        raise HTTPException(status_code=403, detail="您没有权限删除此文件")
-    
-    # 使用存储系统删除文件
-    try:
-        success = storage.delete_file(file_info.filename)
-        if not success:
-            logger.warning(f"物理文件删除失败: {file_info.filename}")
-    except Exception as e:
-        logger.error(f"删除文件失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="删除文件失败")
-    
-    # 从数据库中删除记录
-    try:
-        db.delete(file_info)
-        db.commit()
-        logger.info(f"用户 {current_user.username} 删除了文件 {file_info.original_filename}")
-        return {"message": "文件删除成功"}
-    except Exception as e:
-        db.rollback()
-        logger.error(f"删除文件记录时发生错误: {str(e)}")
-        raise HTTPException(status_code=500, detail="删除文件记录失败")

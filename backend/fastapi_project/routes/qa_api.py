@@ -1,13 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel
 import sys
 from pathlib import Path
+import json
 
 # 添加项目根目录到Python路径，以便导入核心服务
 current_dir = Path(__file__).parent  # routes目录
 backend_dir = current_dir.parent  # fastapi_project目录
-project_root = backend_dir.parent  # 项目根目录 (ai_model_service)
+project_root = backend_dir.parent.parent  # 项目根目录 (ai_model_service) - 需要多一级
 
 # 将项目根目录添加到Python路径的开头
 project_root_str = str(project_root.resolve())
@@ -17,14 +19,12 @@ if project_root_str not in sys.path:
 from core.service_interface import ask_question_interface, upload_file_interface
 from utils.security import get_current_user
 from models.database_models import User
-import json
 
 router = APIRouter(prefix="/api/v1")
 
 
 class AskQuestionRequest(BaseModel):
-    model_config = {'protected_namespaces': ()}  # 禁用模型字段保护命名空间
-    
+    # 完全不设置 Config，使用 Pydantic 默认配置
     question: str
     knowledge_base_id: Union[str, int]  # 支持字符串或整数类型
     model_alias: str = "default"
@@ -49,6 +49,15 @@ async def api_ask_question(
     用户提问接口
     """
     try:
+        # 调试：检查接收到的问题
+        print(f"[DEBUG] Received question: {request.question}")
+        print(f"[DEBUG] Question type: {type(request.question)}")
+        if isinstance(request.question, str):
+            has_chinese = any('\u4e00' <= char <= '\u9fff' for char in request.question)
+            print(f"[DEBUG] Contains Chinese: {has_chinese}")
+            chinese_count = sum(1 for char in request.question if '\u4e00' <= char <= '\u9fff')
+            print(f"[DEBUG] Chinese chars count: {chinese_count}")
+        
         result = ask_question_interface(
             question=request.question,
             user_id=str(current_user.id),
@@ -58,10 +67,26 @@ async def api_ask_question(
             top_k=request.top_k
         )
         
+        # 调试：检查 LLM 返回的答案
+        if result["status"] == "success" and "answer" in result:
+            answer = result["answer"]
+            print(f"[DEBUG] LLM Answer: {answer}")
+            print(f"[DEBUG] Answer type: {type(answer)}")
+            if isinstance(answer, str):
+                has_chinese = any('\u4e00' <= char <= '\u9fff' for char in answer)
+                print(f"[DEBUG] Contains Chinese: {has_chinese}")
+                chinese_count = sum(1 for char in answer if '\u4e00' <= char <= '\u9fff')
+                print(f"[DEBUG] Chinese chars count: {chinese_count}")
+        
         if result["status"] == "error":
             raise HTTPException(status_code=400, detail=result.get("message", "未知错误"))
         
-        return result
+        # 使用JSONResponse确保中文不被转义
+        return JSONResponse(
+            content=result,
+            media_type="application/json",
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -86,79 +111,11 @@ async def api_upload_file(
         if result["status"] == "error":
             raise HTTPException(status_code=400, detail=result.get("message", "未知错误"))
         
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/knowledge/list")
-async def list_documents(
-    knowledge_base_id: str,
-    page: int = 1,
-    limit: int = 20,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    获取知识库文档列表
-    """
-    try:
-        # 这里应该查询数据库获取文档列表
-        # 由于没有具体的文档模型，这里返回模拟数据
-        # 在实际实现中，这应该连接到数据库或向量存储
-        documents = []
-        
-        # 模拟文档数据
-        for i in range((page-1)*limit, page*limit):
-            documents.append({
-                "id": i+1,
-                "filename": f"document_{i+1}.pdf",
-                "size": 1024 * (i+1),  # 模拟文件大小
-                "upload_time": "2023-01-01T00:00:00Z",
-                "knowledge_base_id": knowledge_base_id
-            })
-        
-        return {
-            "data": documents[(page-1)*limit:page*limit],
-            "total": 100,
-            "page": page,
-            "limit": limit,
-            "has_more": page * limit < 100
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/qa/list")
-async def get_qa_history(
-    request: Request,
-    page: int = 1,
-    page_size: int = 20,
-    knowledge_base_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    获取问答历史记录
-    """
-    try:
-        # 模拟问答历史数据
-        # 在实际实现中，这应该查询数据库中的问答记录
-        history = []
-        
-        for i in range((page-1)*page_size, page*page_size):
-            history.append({
-                "id": i+1,
-                "question": f"问题 {i+1}",
-                "answer": f"这是对问题 {i+1} 的答案...",
-                "timestamp": "2023-01-01T00:00:00Z",
-                "knowledge_base_id": knowledge_base_id or "default_kb"
-            })
-        
-        return {
-            "data": history,
-            "total": 200,
-            "page": page,
-            "page_size": page_size,
-            "has_more": page * page_size < 200
-        }
+        # 使用JSONResponse确保中文不被转义
+        return JSONResponse(
+            content=result,
+            media_type="application/json",
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

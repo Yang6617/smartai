@@ -19,16 +19,18 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 async def register(user: UserCreate, db: Session = Depends(get_db)):
     """
     注册新用户
+    临时修改：跳过密码哈希，方便测试
     """
     db_user = get_user(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="用户名已存在")
     
-    hashed_password = get_password_hash(user.password)
+    # 临时修改：直接存储明文密码，跳过哈希处理
+    # 正式环境应使用 get_password_hash(user.password)
     db_user = User(
         username=user.username,
         email=user.email,
-        hashed_password=hashed_password
+        hashed_password=user.password  # 临时使用明文密码
     )
     db.add(db_user)
     db.commit()

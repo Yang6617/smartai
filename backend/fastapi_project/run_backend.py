@@ -2,6 +2,7 @@
 启动后端服务的脚本，正确设置Python路径
 """
 import sys
+import os
 from pathlib import Path
 
 # 添加项目根目录到Python路径，确保能导入core模块
