@@ -35,7 +35,7 @@ print("注意：如果没有错误，服务器将在几秒内启动")
 
 try:
     # 尝试使用一个不太常见的端口
-    port = 8002
+    port = 8003
     print(f"服务器将在 http://127.0.0.1:{port} 上启动")
     print(f"API文档: http://127.0.0.1:{port}/docs")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

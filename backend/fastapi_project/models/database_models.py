@@ -55,11 +55,16 @@ class GroupMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String, default="member")  # 用户角色：admin（管理员）或 member（普通用户）
     joined_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     # 关系
     group = relationship("Group", back_populates="members")
     user = relationship("User")
+    
+    @property
+    def username(self):
+        return self.user.username if self.user else ""
 
 
 # 文件信息模型
@@ -73,7 +78,7 @@ class FileInfo(Base):
     content_type = Column(String)
     upload_time = Column(DateTime, default=datetime.datetime.utcnow)
     uploader_id = Column(Integer, ForeignKey("users.id"))
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)  # 可选的群组关联
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)  # 必须关联群组（知识库）
     file_category = Column(String, default="general")  # 文件分类
     file_type = Column(String, default=FileType.other)  # 文件类型
     
@@ -91,7 +96,7 @@ class QaRecord(Base):
     answer = Column(Text)
     media_type = Column(String, default="text")
     user_id = Column(Integer, ForeignKey("users.id"))
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)  # 可选的群组关联
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)  # 必须关联群组（知识库）
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     source_document_id = Column(Integer, ForeignKey("file_info.id"), nullable=True)  # 来源文档ID
     

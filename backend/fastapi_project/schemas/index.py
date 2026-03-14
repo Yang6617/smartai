@@ -26,12 +26,24 @@ class GroupCreate(BaseModel):
     description: str
 
 
+class GroupMemberSchema(BaseModel):
+    user_id: int
+    username: str
+    role: str
+    joined_at: dt.datetime
+
+    class Config:
+        from_attributes = True
+        protected_namespaces = ()
+
+
 class GroupResponse(BaseModel):
     id: int
     name: str
     description: str
     owner_id: int
     created_at: dt.datetime
+    members: List[GroupMemberSchema] = []
 
     class Config:
         from_attributes = True

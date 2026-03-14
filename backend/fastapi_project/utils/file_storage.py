@@ -54,15 +54,10 @@ class LocalFileStorage(FileStorage):
         self.base_path = Path(base_path)
         self.base_path.mkdir(exist_ok=True)
 
-    def _get_group_directory(self, group_id: Optional[int]) -> Path:
+    def _get_group_directory(self, group_id: int) -> Path:
         """获取群组目录路径"""
-        if group_id is None:
-            # 个人文件存放在 personal 目录下
-            group_dir = self.base_path / "personal"
-        else:
-            # 群组文件存放在 group_{id} 目录下
-            group_dir = self.base_path / f"group_{group_id}"
-        
+        # 群组文件存放在 group_{id} 目录下
+        group_dir = self.base_path / f"group_{group_id}"
         group_dir.mkdir(exist_ok=True)
         return group_dir
 
@@ -70,8 +65,15 @@ class LocalFileStorage(FileStorage):
         """保存文件到对应群组目录"""
         group_dir = self._get_group_directory(group_id)
         
-        # 使用原文件名保存，避免重复的UUID前缀（数据库中已有唯一ID）
-        file_path = group_dir / filename
+        # 使用原文件名保存（去除UUID前缀）
+        # filename 格式: "uuid_original_filename"，我们需要提取 original_filename
+        parts = filename.split('_', 1)
+        if len(parts) == 2 and len(parts[0]) == 36:  # UUID长度为36
+            original_filename = parts[1]
+        else:
+            original_filename = filename
+        
+        file_path = group_dir / original_filename
         counter = 1
         
         # 如果文件已存在，则添加编号

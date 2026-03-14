@@ -20,7 +20,7 @@ async def ask_question(
     """
     基于知识库内容进行问答
     """
-    # 如果指定了群组ID，验证用户是否属于该群组
+    # 如果指定了群组ID，验证用户是否属于该群组（仅群组成员可提问）
     if qa_create.group_id:
         membership = db.query(GroupMember).filter(
             GroupMember.user_id == current_user.id,

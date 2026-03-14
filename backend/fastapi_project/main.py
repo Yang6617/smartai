@@ -40,3 +40,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 启动时创建数据库表
+from database.db_config import engine
+from models.database_models import Base as DBBase
+
+DBBase.metadata.create_all(bind=engine)
