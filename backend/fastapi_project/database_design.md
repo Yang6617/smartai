@@ -179,21 +179,32 @@ curl -X GET "http://127.0.0.1:8003/file/download/1" \
 
 ## 3. 数据库配置
 
-### 3.1 支持的数据库类型
+### 3.1 数据库文件位置
+
+**SQLite 数据库文件**：
+- 默认位置：`backend/fastapi_project/knowledge_system.db`
+- 该文件位于项目根目录下的 `backend/fastapi_project` 目录中
+- 文件会被 `.gitignore` 排除，不会提交到版本控制系统
+
+**向量数据库位置**：
+- 默认位置：`chroma_data/`（项目根目录下）
+- 存储所有向量嵌入数据
+
+### 3.2 支持的数据库类型
 
 系统支持多种数据库：
 
-1. **SQLite**：开发环境使用，配置为 `sqlite:///./knowledge_system.db`
+1. **SQLite**：开发环境使用，默认路径为 `backend/fastapi_project/knowledge_system.db`
 2. **PostgreSQL**：生产环境推荐，配置为 `postgresql://user:password@localhost/dbname`
 3. **MySQL**：生产环境备选，配置为 `mysql+pymysql://user:password@localhost/dbname`
 
-### 3.2 连接配置
+### 3.3 连接配置
 
 - 通过环境变量 `DATABASE_URL` 配置数据库连接
 - SQLite 使用 `connect_args={"check_same_thread": False}` 设置
 - PostgreSQL 和 MySQL 使用 `pool_pre_ping=True` 确保连接有效性
 
-### 3.3 数据库迁移
+### 3.4 数据库迁移
 
 系统提供了数据库迁移脚本 `migrate_add_role.py`，用于为 `group_members` 表添加 `role` 列：
 
@@ -205,6 +216,16 @@ python migrate_add_role.py
 - 检查 `role` 列是否已存在
 - 添加 `role` 列（默认值 "member"）
 - 更新现有数据，将所有现有成员设置为管理员
+
+### 3.5 重置数据库
+
+如需重置数据库：
+
+```bash
+python clear_database.py
+```
+
+此命令会删除 SQLite 数据库和 ChromaDB 向量数据库，下次启动时会自动重新创建。
 
 ## 4. 安全性设计
 
@@ -273,10 +294,21 @@ python migrate_add_role.py
 
 ## 6. 数据库初始化
 
-### 6.1 首次运行
+### 6.1 数据库文件位置
+
+**SQLite 数据库文件**：
+- 默认位置：`backend/fastapi_project/knowledge_system.db`
+- 该文件位于项目根目录下的 `backend/fastapi_project` 目录中
+- 文件会被 `.gitignore` 排除，不会提交到版本控制系统
+
+**向量数据库位置**：
+- 默认位置：`chroma_data/`（项目根目录下）
+- 存储所有向量嵌入数据
+
+### 6.2 首次运行
 首次运行后端服务时，系统会自动创建所有数据库表结构。
 
-### 6.2 重置数据库
+### 6.3 重置数据库
 如需重置数据库：
 
 ```bash
@@ -285,7 +317,7 @@ python clear_database.py
 
 此命令会删除 SQLite 数据库和 ChromaDB 向量数据库，下次启动时会自动重新创建。
 
-### 6.3 数据库迁移
+### 6.4 数据库迁移
 当数据库结构发生变化时，需要运行迁移脚本：
 
 ```bash

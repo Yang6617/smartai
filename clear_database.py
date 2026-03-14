@@ -35,7 +35,13 @@ def clear_sqlite_database(force=False):
     from dotenv import load_dotenv
     load_dotenv()
     
-    database_url = os.getenv("DATABASE_URL", "sqlite:///./knowledge_system.db")
+    database_url = os.getenv("DATABASE_URL", None)
+    
+    # 如果没有设置 DATABASE_URL，使用与 db_config.py 相同的默认路径
+    if database_url is None:
+        from pathlib import Path
+        base_dir = Path(__file__).resolve().parent
+        database_url = f"sqlite:///{base_dir / 'backend' / 'fastapi_project' / 'knowledge_system.db'}"
     
     # 提取数据库文件路径（对于SQLite）
     if database_url.startswith("sqlite:///"):
