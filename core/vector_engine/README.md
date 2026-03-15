@@ -222,7 +222,7 @@ from core.vector_engine.batch_processor.config import BatchProcessorConfig
 # 创建配置
 config = BatchProcessorConfig(
     model_path="../../model",
-    db_path="../../data/chroma_persistent_data"
+    db_path="../../chroma_data"
 )
 
 # 创建批量处理器
@@ -324,7 +324,7 @@ from core.vector_engine.vector_db_proxy.proxy import VectorDBProxy
 # 方式1: 手动配置
 config = VectorDBConfig(
     db_type="chromadb",
-    path="../../data/chroma_persistent_data",  # 根据实际项目结构调整路径
+    path="../../chroma_data",  # 根据实际项目结构调整路径
     host="",  # 留空以使用持久化模式
     port=0    # 留空以使用持久化模式
 )
@@ -339,7 +339,7 @@ from core.vector_engine.vector_db_proxy.proxy import create_vector_db_proxy
 
 proxy = create_vector_db_proxy(
     db_type="chromadb",
-    path="../../data/chroma_persistent_data",  # 根据实际项目结构调整路径
+    path="../../chroma_data",  # 根据实际项目结构调整路径
     host="",  # 使用持久化模式
     port=0    # 使用持久化模式
 )
@@ -377,7 +377,7 @@ from core.vector_engine.batch_processor.config import BatchProcessorConfig
 # 创建配置
 config = BatchProcessorConfig(
     model_path="../../model",
-    db_path="../../data/chroma_persistent_data"
+    db_path="../../chroma_data"
 )
 
 # 创建批量处理器

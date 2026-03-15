@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from dataclasses import dataclass
 from typing import Optional
+from pathlib import Path
 
 
 @dataclass
@@ -22,7 +23,7 @@ class VectorDBConfig:
     # Connection parameters - default to empty values to favor persistent mode
     host: str = ""  # Empty string defaults to persistent mode
     port: int = 0   # Zero defaults to persistent mode
-    path: Optional[str] = "./chroma_data"  # For ChromaDB persistence
+    path: Optional[str] = None  # If None, use default path: ./chroma_data relative to project root
     api_key: Optional[str] = None
     ssl: bool = False
     
@@ -38,3 +39,11 @@ class VectorDBConfig:
     def __post_init__(self):
         if self.additional_options is None:
             self.additional_options = {}
+        
+        # If path is None, use default path relative to project root
+        if self.path is None:
+            # Try to find project root (ai_model_service directory)
+            current_file = Path(__file__).resolve()
+            # Go up from vector_db_proxy -> vector_engine -> core -> project root
+            project_root = current_file.parent.parent.parent.parent
+            self.path = str(project_root / "chroma_data")

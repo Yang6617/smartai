@@ -12,7 +12,7 @@ class BatchProcessorConfig:
     """
     model_path: str = "../../model"  # 模型路径
     db_type: str = "chromadb"        # 数据库类型
-    db_path: str = "../../data/chroma_persistent_data"  # 数据库路径
+    db_path: str = "../../chroma_data"  # 数据库路径
     db_host: str = ""                # 数据库主机
     db_port: int = 0                 # 数据库端口
     default_model: str = "bge-m3"    # 默认模型名称

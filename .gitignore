@@ -26,7 +26,6 @@ wheels/
 *.egg
 
 # Database
-data/
 *.sqlite3
 *.db
 chroma_data/

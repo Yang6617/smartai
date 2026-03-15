@@ -30,7 +30,7 @@ def test_processor_creation():
     print("\n测试处理器创建...")
     config = BatchProcessorConfig(
         model_path="../../model",
-        db_path="../../data/chroma_persistent_data"
+        db_path="../../chroma_data"
     )
     
     # 验证创建时是否会因为模型目录不存在而抛出异常

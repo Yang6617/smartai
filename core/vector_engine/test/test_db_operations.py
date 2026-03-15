@@ -24,7 +24,7 @@ def test_chromadb_operations():
     # 配置数据库连接（使用持久化模式）
     config = VectorDBConfig(
         db_type="chromadb",
-        path="../../data/chroma_persistent_data",  # 本地持久化路径
+        path="../../chroma_data",  # 本地持久化路径
         host="",  # 留空以使用持久化模式
         port=0,   # 留空以使用持久化模式
     )

@@ -18,7 +18,7 @@ def test_complete_interface():
     # 使用推荐的方式创建代理
     proxy = create_vector_db_proxy(
         db_type="chromadb",
-        path="../../data/chroma_persistent_data",
+        path="../../chroma_data",
         host="",
         port=0
     )

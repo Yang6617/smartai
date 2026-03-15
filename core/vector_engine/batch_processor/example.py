@@ -17,7 +17,7 @@ def main():
     # 创建配置
     config = BatchProcessorConfig(
         model_path="../../model",  # 模型存储路径
-        db_path="../../data/chroma_persistent_data"  # 向量数据库路径
+        db_path="../../chroma_data"  # 向量数据库路径
     )
     
     # 创建批量处理器
